@@ -53,20 +53,14 @@ fn derive_gamma(
     data_transcript: Option<Vec<u8>>,
 ) -> Result<Fr> {
     let mut transcript = Transcript::new(Some([GAMMA.to_string()].to_vec()))?;
-    transcript.bind(GAMMA, &point.into_u256().to_bytes_be().map_err(Error::msg)?)?;
+    transcript.bind(GAMMA, &point.into_u256().to_bytes_be())?;
 
     for digest in digests.iter() {
         transcript.bind(GAMMA, &g1_to_bytes(digest)?)?;
     }
 
     for claimed_value in claimed_values.iter() {
-        transcript.bind(
-            GAMMA,
-            &claimed_value
-                .into_u256()
-                .to_bytes_be()
-                .map_err(Error::msg)?,
-        )?;
+        transcript.bind(GAMMA, &claimed_value.into_u256().to_bytes_be())?;
     }
 
     if let Some(data_transcript) = data_transcript {
@@ -88,7 +82,7 @@ fn fold(di: Vec<Digest>, fai: Vec<Fr>, ci: Vec<Fr>) -> Result<(G1, Fr)> {
         folded_evaluations += fai[i] * ci[i];
     }
 
-    let folded_digests = G1::msm(&di, &ci);
+    let folded_digests = G1::msm(&di.iter().map(|&p| p.into()).collect::<Vec<_>>(), &ci);
 
     Ok((folded_digests, folded_evaluations))
 }
@@ -203,7 +197,10 @@ pub(crate) fn batch_verify_multi_points(
         quotients.push(proofs[i].h);
     }
 
-    let mut folded_quotients = G1::msm(&quotients, &random_numbers);
+    let mut folded_quotients = G1::msm(
+        &quotients.iter().map(|&p| p.into()).collect::<Vec<_>>(),
+        &random_numbers,
+    );
 
     let mut evals = Vec::with_capacity(nb_digests);
     for i in 0..nb_digests {
@@ -218,7 +215,10 @@ pub(crate) fn batch_verify_multi_points(
         random_numbers[i] = random_numbers[i] * points[i];
     }
 
-    let folded_points_quotients = G1::msm(&quotients, &random_numbers);
+    let folded_points_quotients = G1::msm(
+        &quotients.iter().map(|&p| p.into()).collect::<Vec<_>>(),
+        &random_numbers,
+    );
 
     folded_digests = folded_digests + folded_points_quotients;
     folded_quotients = -folded_quotients;

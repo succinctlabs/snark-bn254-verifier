@@ -247,9 +247,11 @@ pub fn verify_plonk(
     scalars.push(zeta_n_plus_two_square_zh);
 
     // Perform the multi-scalar multiplication
-    let linearized_polynomial_digest = G1::msm(&points, &scalars)
-        .to_affine()
-        .ok_or_else(|| anyhow!("No affine"))?;
+    let linearized_polynomial_digest = G1::msm(
+        &points.iter().map(|&p| p.into()).collect::<Vec<_>>(),
+        &scalars,
+    )
+    .into();
 
     let mut digests_to_fold = vec![AffineG1::default(); vk.qcp.len() + 6];
     digests_to_fold[6..].copy_from_slice(&vk.qcp);
@@ -264,14 +266,11 @@ pub fn verify_plonk(
         digests_to_fold,
         &proof.batched_proof,
         &zeta,
-        Some(zu.into_u256().to_bytes_be().map_err(Error::msg)?),
+        Some(zu.into_u256().to_bytes_be().to_vec()),
     )?;
 
     let shifted_zeta = zeta * vk.generator;
-    let folded_digest = folded_digest
-        .to_affine()
-        .ok_or(CurveError::ToAffineConversion)
-        .map_err(Error::msg)?;
+    let folded_digest = folded_digest.into();
     kzg::batch_verify_multi_points(
         [folded_digest, proof.z].to_vec(),
         [folded_proof, proof.z_shifted_opening].to_vec(),
@@ -303,10 +302,7 @@ fn bind_public_data(
     }
 
     for public_input in public_inputs.iter() {
-        transcript.bind(
-            challenge,
-            &public_input.into_u256().to_bytes_be().map_err(Error::msg)?,
-        )?;
+        transcript.bind(challenge, &public_input.into_u256().to_bytes_be())?;
     }
 
     Ok(())

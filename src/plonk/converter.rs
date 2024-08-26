@@ -2,7 +2,7 @@ use anyhow::{anyhow, Error, Result};
 use ark_serialize::SerializationError;
 use std::cmp::Ordering;
 use std::ops::Neg;
-use substrate_bn::{AffineG1, Fq, Fr, G2};
+use substrate_bn::{AffineG1, Fq, Fr, G1, G2};
 
 use crate::{
     constants::{
@@ -27,31 +27,14 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
         if !is_zeroed(buf[0] & !GNARK_MASK, &buf[1..32])? {
             return Err(anyhow!(SerializationError::InvalidData));
         }
-        Ok(AffineG1::identity())
+        Ok(AffineG1::default())
     } else {
         let mut x_bytes: [u8; 32] = [0u8; 32];
         x_bytes.copy_from_slice(buf);
         x_bytes[0] &= !GNARK_MASK;
-
-        let x = Fq::from_slice(&x_bytes.to_vec()).map_err(Error::msg)?;
-        let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
-            .ok_or(SerializationError::InvalidData)
-            .map_err(Error::msg)?;
-
-        let mut final_y = y;
-        if y.cmp(&neg_y) == Ordering::Greater {
-            if m_data == GNARK_COMPRESSED_POSTIVE {
-                final_y = y.neg();
-            }
-        } else {
-            if m_data == GNARK_COMPRESSED_NEGATIVE {
-                final_y = y.neg();
-            }
-        }
-
-        let p = AffineG1::new(x, final_y).map_err(Error::msg)?;
-
-        Ok(p)
+        G1::from_compressed(&x_bytes)
+            .map(|p| p.into())
+            .map_err(Error::msg)
     }
 }
 
