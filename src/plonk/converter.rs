@@ -1,8 +1,11 @@
 use anyhow::{anyhow, Error, Result};
-use ark_serialize::SerializationError;
+use ark_bn254::{g2::Config, Bn254, G2Affine};
+use ark_ec::{bn::BnConfig, short_weierstrass::SWCurveConfig, AffineRepr};
+use ark_ff::{BigInteger, Fp2Config, MontFp, One, QuadExtField};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
 use std::cmp::Ordering;
 use std::ops::Neg;
-use substrate_bn::{AffineG1, Fq, Fr, G1, G2};
+use substrate_bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
 
 use crate::{
     constants::{
@@ -27,25 +30,74 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
         if !is_zeroed(buf[0] & !GNARK_MASK, &buf[1..32])? {
             return Err(anyhow!(SerializationError::InvalidData));
         }
-        Ok(AffineG1::default())
+        Ok(AffineG1::identity())
     } else {
         let mut x_bytes: [u8; 32] = [0u8; 32];
         x_bytes.copy_from_slice(buf);
         x_bytes[0] &= !GNARK_MASK;
-        G1::from_compressed(&x_bytes)
-            .map(|p| p.into())
-            .map_err(Error::msg)
+
+        let x = Fq::from_slice(&x_bytes.to_vec()).map_err(Error::msg)?;
+        let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
+            .ok_or(SerializationError::InvalidData)
+            .map_err(Error::msg)?;
+
+        let mut final_y = y;
+        if y.cmp(&neg_y) == Ordering::Greater {
+            if m_data == GNARK_COMPRESSED_POSTIVE {
+                final_y = y.neg();
+            }
+        } else {
+            if m_data == GNARK_COMPRESSED_NEGATIVE {
+                final_y = y.neg();
+            }
+        }
+
+        let p = AffineG1::new(x, final_y).map_err(Error::msg)?;
+
+        Ok(p)
     }
 }
 
-fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<G2> {
+fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
     if buf.len() != 64 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
 
     let bytes = gnark_commpressed_x_to_ark_commpressed_x(&buf.to_vec())?;
-    let p = G2::from_compressed(&bytes).map_err(Error::msg)?;
-    Ok(p)
+
+    let p = G2Affine::deserialize_compressed::<&[u8]>(&bytes).map_err(Error::msg)?;
+    let x = p.x().unwrap();
+    let y = p.y().unwrap();
+
+    let mut x_bytes = vec![];
+    x.serialize_uncompressed(&mut x_bytes).unwrap();
+    x_bytes.reverse();
+
+    let mut y_bytes = vec![];
+    y.serialize_uncompressed(&mut y_bytes).unwrap();
+    y_bytes.reverse();
+
+    println!("x_bytes: {:?}", x_bytes);
+    println!("y_bytes: {:?}", y_bytes);
+
+    let x_real = Fq::from_slice(&x_bytes[..32]).unwrap();
+    let x_imag = Fq::from_slice(&x_bytes[32..]).unwrap();
+    let y_real = Fq::from_slice(&y_bytes[..32]).unwrap();
+    let y_imag = Fq::from_slice(&y_bytes[32..]).unwrap();
+
+    let x = Fq2::new(x_imag, x_real);
+    let y = Fq2::new(y_imag, y_real);
+
+    let mut x_bytes = [0u8; 32];
+    let mut y_bytes = [0u8; 32];
+
+    x.real().to_big_endian(&mut x_bytes).unwrap();
+    x.imaginary().to_big_endian(&mut y_bytes).unwrap();
+
+    println!("x: {:?}", x_bytes);
+    println!("y: {:?}", y_bytes);
+
+    AffineG2::new(x, y).map_err(Error::msg)
 }
 
 pub fn gnark_uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
@@ -63,31 +115,46 @@ pub fn gnark_uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
 }
 
 pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<PlonkVerifyingKey> {
+    // Extracting size from the buffer
     let size = u64::from_be_bytes([
         buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7],
     ]) as usize;
+    // Extracting size inversion from the buffer
     let size_inv = Fr::from_slice(&buffer[8..40]).map_err(Error::msg)?;
+    // Extracting generator from the buffer
     let generator = Fr::from_slice(&buffer[40..72]).map_err(|err| anyhow!("{err:?}"))?;
+    // Extracting number of public variables from the buffer
     let nb_public_variables = u64::from_be_bytes([
         buffer[72], buffer[73], buffer[74], buffer[75], buffer[76], buffer[77], buffer[78],
         buffer[79],
     ]) as usize;
+    // Extracting coset shift from the buffer
     let coset_shift = Fr::from_slice(&buffer[80..112]).map_err(|err| anyhow!("{err:?}"))?;
 
+    // Extracting s0 from the buffer
     let s0 = gnark_compressed_x_to_g1_point(&buffer[112..144])?;
+    // Extracting s1 from the buffer
     let s1 = gnark_compressed_x_to_g1_point(&buffer[144..176])?;
+    // Extracting s2 from the buffer
     let s2 = gnark_compressed_x_to_g1_point(&buffer[176..208])?;
 
+    // Extracting ql from the buffer
     let ql = gnark_compressed_x_to_g1_point(&buffer[208..240])?;
+    // Extracting qr from the buffer
     let qr = gnark_compressed_x_to_g1_point(&buffer[240..272])?;
+    // Extracting qm from the buffer
     let qm = gnark_compressed_x_to_g1_point(&buffer[272..304])?;
+    // Extracting qo from the buffer
     let qo = gnark_compressed_x_to_g1_point(&buffer[304..336])?;
+    // Extracting qk from the buffer
     let qk = gnark_compressed_x_to_g1_point(&buffer[336..368])?;
 
+    // Extracting number of quadratic constraints from the buffer
     let num_qcp = u32::from_be_bytes([buffer[368], buffer[369], buffer[370], buffer[371]]);
     let mut qcp = Vec::new();
     let mut offset = 372;
     for _ in 0..num_qcp {
+        // Extracting quadratic constraint points from the buffer
         let point = gnark_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
         qcp.push(point);
         offset += 32;
@@ -133,7 +200,7 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
         generator,
         nb_public_variables,
         kzg: kzg::KZGVerifyingKey {
-            g2: [g2_0, g2_1],
+            g2: [G2::from(g2_0), G2::from(g2_1)],
             g1: g1.into(),
             lines: [[[LineEvaluationAff {
                 r0: E2 {
@@ -225,4 +292,35 @@ pub(crate) fn g1_to_bytes(g1: &AffineG1) -> Result<Vec<u8>> {
         .to_big_endian(&mut bytes)
         .map_err(|err| anyhow!("{err:?}"))?;
     Ok(bytes)
+}
+
+#[test]
+fn test_transform() {
+    let one = ark_bn254::Fq2::one();
+
+    println!("one: {:?}", one);
+    println!("one: {:?}", one.c0.0 .0);
+
+    let mut writer = vec![];
+    one.serialize_uncompressed(&mut writer).unwrap();
+    writer.reverse();
+    println!("writer: {:?}", writer);
+
+    let substrate_bn_x = Fq::from_slice(&writer[..32]).unwrap();
+    let substrate_bn_y = Fq::from_slice(&writer[32..64]).unwrap();
+    let substrate_bn = Fq2::new(substrate_bn_y, substrate_bn_x);
+    // let substrate_bn = Fq2::from_slice(&writer).unwrap();
+    let mut x_bytes = [0u8; 32];
+    let mut y_bytes = [0u8; 32];
+
+    substrate_bn.real().to_big_endian(&mut x_bytes).unwrap();
+    substrate_bn
+        .imaginary()
+        .to_big_endian(&mut y_bytes)
+        .unwrap();
+
+    println!("x_bytes: {:?}", x_bytes);
+    println!("y_bytes: {:?}", y_bytes);
+
+    println!("substrate_bn: {:?}", substrate_bn);
 }
