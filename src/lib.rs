@@ -16,7 +16,7 @@ pub trait Verifier {
     fn verify(proof: &[u8], vk: &[u8], public_inputs: &[Self::Fr]) -> bool;
 }
 
-struct Groth16Verifier;
+pub struct Groth16Verifier;
 
 impl Verifier for Groth16Verifier {
     type Fr = ark_bn254::Fr;
@@ -35,7 +35,7 @@ impl Verifier for Groth16Verifier {
     }
 }
 
-struct PlonkVerifier;
+pub struct PlonkVerifier;
 
 impl Verifier for PlonkVerifier {
     type Fr = substrate_bn::Fr;

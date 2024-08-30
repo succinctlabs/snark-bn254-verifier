@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use rand::rngs::OsRng;
 use substrate_bn::{pairing_batch, AffineG1, Fr, G1, G2};
 
@@ -132,8 +132,8 @@ pub(crate) fn fold_proof(
 //     point: &Fr,
 //     vk: &PlonkVerifyingKey,
 // ) -> Result<bool, &'static str> {
-//     let mut total_g1 = G1Projective::zero();
-//     let point_neg = -point;
+//     let mut total_g1 = G1::zero();
+//     let point_neg = -(*point);
 //     let cm_int = proof.claimed_value.into_repr();
 //     let point_int = point_neg.into_repr();
 
