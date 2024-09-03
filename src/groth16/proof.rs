@@ -1,10 +1,10 @@
-use ark_bn254::{G1Affine, G2Affine};
+use substrate_bn::{AffineG1, AffineG2};
 
 #[derive(Debug)]
 pub(crate) struct Groth16Proof {
-    pub(crate) ar: G1Affine,
-    pub(crate) krs: G1Affine,
-    pub(crate) bs: G2Affine,
-    pub(crate) commitments: Vec<G1Affine>,
-    pub(crate) commitment_pok: G1Affine,
+    pub(crate) ar: AffineG1,
+    pub(crate) krs: AffineG1,
+    pub(crate) bs: AffineG2,
+    pub(crate) commitments: Vec<AffineG1>,
+    pub(crate) commitment_pok: AffineG1,
 }
