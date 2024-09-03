@@ -755,6 +755,7 @@ dependencies = [
  "cfg-if",
  "crunchy",
  "lazy_static",
+ "num-bigint",
  "rand",
  "rustc-hex",
  "sp1-lib",

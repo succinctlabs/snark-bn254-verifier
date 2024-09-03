@@ -5,4 +5,5 @@ mod proof;
 pub(crate) use proof::Groth16Proof;
 
 mod verify;
-pub(crate) use verify::verify_groth16;
+// pub(crate) use verify::verify_groth16;
+pub(crate) use verify::*;
