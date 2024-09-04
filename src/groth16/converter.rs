@@ -71,10 +71,22 @@ pub fn gnark_uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
 
     let (x_bytes, y_bytes) = buf.split_at(32);
 
+    println!("[UNCONVERTED] x_bytes: {:?}", x_bytes);
+    println!("[UNCONVERTED] y_bytes: {:?}", y_bytes);
+
     let x =
         Fq::from_be_bytes_mod_order(&x_bytes.to_vec()).expect("Failed to convert x bytes to Fq");
     let y =
         Fq::from_be_bytes_mod_order(&y_bytes.to_vec()).expect("Failed to convert y bytes to Fq");
+
+    let mut x_bytes = [0u8; 32];
+    x.to_big_endian(&mut x_bytes)
+        .expect("Failed to convert x to big endian bytes");
+    let mut y_bytes = [0u8; 32];
+    y.to_big_endian(&mut y_bytes)
+        .expect("Failed to convert y to big endian bytes");
+    println!("[CONVERTED] x (big endian): {:?}", x_bytes);
+    println!("[CONVERTED] y (big endian): {:?}", y_bytes);
 
     AffineG1::new(x, y).map_err(|e| anyhow!("Failed to create AffineG1 point: {}", e))
 }
