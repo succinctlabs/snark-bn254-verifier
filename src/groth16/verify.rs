@@ -41,7 +41,6 @@ pub(crate) struct Groth16VerifyingKey {
 
 pub fn convert_g1_sub_to_ark(p: AffineG1) -> G1Affine {
     let p_bytes: [u8; 64] = unsafe { std::mem::transmute(p) };
-    println!("p_bytes: {:?}", p_bytes);
     G1Affine::deserialize_uncompressed(&p_bytes[..]).unwrap()
 }
 
