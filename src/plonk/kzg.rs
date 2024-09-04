@@ -1,16 +1,19 @@
 use anyhow::{anyhow, Result};
-use ark_bn254::G1Projective;
-use ark_ec::{CurveGroup, VariableBaseMSM};
+use ark_bn254::{Bn254, G1Projective};
+use ark_ec::{pairing::Pairing, CurveGroup, VariableBaseMSM};
 use rand::rngs::OsRng;
 use substrate_bn::{pairing_batch, AffineG1, Fr, G1, G2};
 
 use crate::{
     constants::{ERR_INVALID_NUMBER_OF_DIGESTS, ERR_PAIRING_CHECK_FAILED, GAMMA},
-    groth16::{convert_fr_sub_to_ark, convert_g1_ark_to_sub, convert_g1_sub_to_ark},
+    groth16::{
+        convert_fr_sub_to_ark, convert_g1_ark_to_sub, convert_g1_sub_to_ark, convert_g2_sub_to_ark,
+    },
     transcript::Transcript,
 };
 
 use super::{converter::g1_to_bytes, element::PlonkFr};
+use num_traits::Zero;
 
 pub(crate) type Digest = AffineG1;
 
@@ -196,6 +199,34 @@ pub(crate) fn batch_verify_multi_points(
     points: Vec<Fr>,
     vk: &KZGVerifyingKey,
 ) -> Result<()> {
+    println!("digests:");
+    for (i, digest) in digests.iter().enumerate() {
+        println!("  digest[{}]: {:?}", i, convert_g1_sub_to_ark(*digest));
+    }
+    println!("proofs:");
+    println!("proofs:");
+    for (i, proof) in proofs.iter().enumerate() {
+        println!("  proof[{}]:", i);
+        println!("    h: {:?}", convert_g1_sub_to_ark(proof.h));
+        println!(
+            "    claimed_value: {:?}",
+            convert_fr_sub_to_ark(proof.claimed_value)
+        );
+    }
+    println!("points:");
+    for (i, point) in points.iter().enumerate() {
+        println!("  point[{}]: {:?}", i, convert_fr_sub_to_ark(*point));
+    }
+    println!("vk.g1: {:?}", convert_g1_sub_to_ark(vk.g1.into()));
+    println!("vk.g2[0]: {:?}", convert_g2_sub_to_ark(vk.g2[0].into()));
+    println!("vk.g2[1]: {:?}", convert_g2_sub_to_ark(vk.g2[1].into()));
+    println!("vk.lines:");
+    for i in 0..2 {
+        for j in 0..2 {
+            println!("  vk.lines[{i}][{j}]: {:?}", vk.lines[i][j]);
+        }
+    }
+
     let nb_digests = digests.len();
     let nb_proofs = proofs.len();
     let nb_points = points.len();
@@ -216,7 +247,8 @@ pub(crate) fn batch_verify_multi_points(
     let mut random_numbers = Vec::with_capacity(nb_digests);
     random_numbers.push(Fr::one());
     for _ in 1..nb_digests {
-        random_numbers.push(Fr::random(&mut rng));
+        // random_numbers.push(Fr::random(&mut rng));
+        random_numbers.push(Fr::one());
     }
 
     let mut quotients = Vec::with_capacity(nb_proofs);
@@ -228,6 +260,10 @@ pub(crate) fn batch_verify_multi_points(
     //     &quotients.iter().map(|&p| p.into()).collect::<Vec<_>>(),
     //     &random_numbers,
     // );
+    println!("quotients:");
+    for (i, quotient) in quotients.iter().enumerate() {
+        println!("  quotient[{}]: {:?}", i, convert_g1_sub_to_ark(*quotient));
+    }
     let msm = G1Projective::msm(
         &quotients
             .iter()
@@ -240,6 +276,7 @@ pub(crate) fn batch_verify_multi_points(
     )
     .map_err(|e| anyhow!(e))?
     .into_affine();
+    println!("folded_quotients: {:?}", msm);
     let mut folded_quotients: G1 = convert_g1_ark_to_sub(msm).into();
 
     let mut evals = Vec::with_capacity(nb_digests);
@@ -248,6 +285,11 @@ pub(crate) fn batch_verify_multi_points(
     }
 
     let (mut folded_digests, folded_evals) = fold(digests, evals, random_numbers.clone())?;
+    println!("folded_evals: {:?}", convert_fr_sub_to_ark(folded_evals));
+    println!(
+        "folded_digests: {:?}",
+        convert_g1_sub_to_ark(folded_digests.into())
+    );
     let folded_evals_commit = vk.g1 * folded_evals;
     folded_digests = folded_digests - folded_evals_commit;
 
@@ -271,13 +313,24 @@ pub(crate) fn batch_verify_multi_points(
     )
     .map_err(|e| anyhow!(e))?
     .into_affine();
+    println!("folded_points_quotients: {:?}", msm);
     let folded_points_quotients: G1 = convert_g1_ark_to_sub(msm).into();
 
     folded_digests = folded_digests + folded_points_quotients;
     folded_quotients = -folded_quotients;
 
     // Pairing check
-    let pairing_result = pairing_batch(&[(folded_digests, vk.g2[0]), (folded_quotients, vk.g2[1])]);
+    // let pairing_result = pairing_batch(&[(folded_digests, vk.g2[0]), (folded_quotients, vk.g2[1])]);
+    let pairing_result = Bn254::multi_pairing(
+        [
+            convert_g1_sub_to_ark(folded_digests.into()),
+            convert_g1_sub_to_ark(folded_quotients.into()),
+        ],
+        [
+            convert_g2_sub_to_ark(vk.g2[0].into()),
+            convert_g2_sub_to_ark(vk.g2[1].into()),
+        ],
+    );
 
     if !pairing_result.is_zero() {
         return Err(anyhow!(ERR_PAIRING_CHECK_FAILED));
