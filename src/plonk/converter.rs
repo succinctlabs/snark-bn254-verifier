@@ -1,4 +1,6 @@
 use anyhow::{anyhow, Error, Result};
+use ark_ec::AffineRepr;
+use ark_ff::{BigInteger, PrimeField};
 use ark_serialize::SerializationError;
 use std::cmp::Ordering;
 use std::ops::Neg;
@@ -6,9 +8,11 @@ use substrate_bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
 
 use crate::{
     constants::{
-        GNARK_COMPRESSED_INFINITY, GNARK_COMPRESSED_NEGATIVE, GNARK_COMPRESSED_POSTIVE, GNARK_MASK,
+        ERR_FAILED_TO_GET_X, ERR_FAILED_TO_GET_Y, GNARK_COMPRESSED_INFINITY,
+        GNARK_COMPRESSED_NEGATIVE, GNARK_COMPRESSED_POSTIVE, GNARK_MASK,
     },
     converter::{gnark_commpressed_x_to_ark_commpressed_x, is_zeroed},
+    groth16::{convert_fr_sub_to_ark, convert_g1_sub_to_ark, convert_g2_ark_to_sub},
 };
 
 use super::{
@@ -56,6 +60,7 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
 }
 
 fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
+    use ark_serialize::CanonicalDeserialize;
     println!("Entering gnark_compressed_x_to_g2_point function");
 
     println!("Checking buffer length");
@@ -68,7 +73,10 @@ fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
     let bytes = gnark_commpressed_x_to_ark_commpressed_x(&buf.to_vec())?;
 
     println!("Deserializing compressed bytes to AffineG2");
-    let p = AffineG2::deserialize_compressed(&bytes).map_err(Error::msg)?;
+
+    let p = ark_bn254::G2Affine::deserialize_compressed::<&[u8]>(&bytes).map_err(Error::msg)?;
+    let p = convert_g2_ark_to_sub(p);
+
     println!("AffineG2 point: {:?}", p);
 
     println!("Returning AffineG2 point");
@@ -300,12 +308,19 @@ pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
 }
 
 pub(crate) fn g1_to_bytes(g1: &AffineG1) -> Result<Vec<u8>> {
+    let g1 = convert_g1_sub_to_ark(*g1);
     let mut bytes = vec![];
-    g1.x()
-        .to_big_endian(&mut bytes)
-        .map_err(|err| anyhow!("{err:?}"))?;
-    g1.y()
-        .to_big_endian(&mut bytes)
-        .map_err(|err| anyhow!("{err:?}"))?;
+    let value_x = g1
+        .x()
+        .expect(ERR_FAILED_TO_GET_X)
+        .into_bigint()
+        .to_bytes_be();
+    let value_y = g1
+        .y()
+        .expect(ERR_FAILED_TO_GET_Y)
+        .into_bigint()
+        .to_bytes_be();
+    bytes.extend_from_slice(&value_x);
+    bytes.extend_from_slice(&value_y);
     Ok(bytes)
 }

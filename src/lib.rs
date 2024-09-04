@@ -41,13 +41,22 @@ impl Verifier for PlonkVerifier {
     type Fr = substrate_bn::Fr;
 
     fn verify(proof: &[u8], vk: &[u8], public_inputs: &[Self::Fr]) -> bool {
+        println!("Loading PLONK proof from bytes...");
         let proof = load_plonk_proof_from_bytes(proof).unwrap();
-        let vk = load_plonk_verifying_key_from_bytes(vk).unwrap();
+        println!("PLONK proof loaded successfully");
 
+        println!("Loading PLONK verifying key from bytes...");
+        let vk = load_plonk_verifying_key_from_bytes(vk).unwrap();
+        println!("PLONK verifying key loaded successfully");
+
+        println!("Verifying PLONK proof...");
         match verify_plonk(&vk, &proof, public_inputs) {
-            Ok(result) => result,
+            Ok(result) => {
+                println!("PLONK verification result: {}", result);
+                result
+            }
             Err(e) => {
-                println!("Error: {:?}", e);
+                println!("Error during PLONK verification: {:?}", e);
                 false
             }
         }
@@ -63,12 +72,13 @@ mod tfms_tests {
         convert_fr_sub_to_ark, convert_g1_ark_to_sub, convert_g1_sub_to_ark, convert_g2_ark_to_sub,
         convert_g2_sub_to_ark,
     };
-    use substrate_bn::{AffineG1, AffineG2, Fq, Fq2, Fr};
+    use substrate_bn::{AffineG1, AffineG2, Fq, Fq2, Fr, Group, G1, G2};
 
     use super::*;
 
     #[test]
     fn test_substrate_to_ark() {
+        use ark_ec::CurveGroup;
         use rand::Rng;
 
         let mut rng = rand::thread_rng();
@@ -85,23 +95,42 @@ mod tfms_tests {
         }
         {
             for _ in 0..10 {
-                // Generate a random x coordinate
-                let x = Fq::random(&mut rng);
+                // Generate two random points on the curve
+                let p1 = G1::random(&mut rng);
+                let p2 = G1::random(&mut rng);
+                // Convert the points to affine representation
+                let a1: AffineG1 = p1.into();
+                let a2: AffineG1 = p2.into();
 
-                // Compute y^2 = x^3 + b where b = 3
+                // Perform addition in substrate representation
+                let sum_sub: AffineG1 = (p1 + p2).into();
+
+                // Convert to Arkworks representation and perform addition
+                let ark_a1 = convert_g1_sub_to_ark(a1);
+                let ark_a2 = convert_g1_sub_to_ark(a2);
+                let sum_ark = ark_a1 + ark_a2;
+                // Convert the Arkworks sum back to substrate representation
+                let sum_ark_affine = sum_ark.into_affine();
+                let sum_converted = convert_g1_ark_to_sub(sum_ark_affine);
+
+                // Verify that convert(a + b) = convert(a) + convert(b)
+                assert_eq!(
+                    sum_sub, sum_converted,
+                    "Addition property not preserved in conversion"
+                );
+
+                // Original tests
+                let x = Fq::random(&mut rng);
                 let x_cubed = x * x * x;
                 let y_squared = x_cubed + Fq::from_str("3").unwrap();
 
-                // Compute y (if it exists)
                 if let Some(y) = y_squared.sqrt() {
                     let p = AffineG1::new(x, y).expect("Failed to create AffineG1");
                     let ark_p = convert_g1_sub_to_ark(p);
 
-                    // Verify that the conversion is correct
                     assert_eq!(p.x(), Fq::from_str(&ark_p.x.to_string()).unwrap());
                     assert_eq!(p.y(), Fq::from_str(&ark_p.y.to_string()).unwrap());
 
-                    // Print x and y as bytes before conversion
                     let mut x_bytes = [0u8; 32];
                     let mut y_bytes = [0u8; 32];
                     p.x().to_big_endian(&mut x_bytes).unwrap();
@@ -156,49 +185,27 @@ mod tfms_tests {
 
     #[test]
     fn test_affine_g2_one() {
-        // Get the generator point (one) of G2
-        let g2_one = AffineG2::one();
+        for _ in 0..10 {
+            let g: AffineG2 = AffineG2::from(G2::one() * Fr::from_str("2").unwrap());
+            // Convert the random G2 point to Arkworks representation
+            let ark_g = convert_g2_sub_to_ark(g);
 
-        let g2_one_bytes: [u8; 128] = unsafe { std::mem::transmute(g2_one) };
-        println!("G2Affine::one() as bytes: {:?}", g2_one_bytes);
+            // Extract x and y coordinates
+            let x = g.x();
+            let y = g.y();
 
-        // Extract x and y coordinates
-        let x = g2_one.x();
-        let y = g2_one.y();
+            // Print the coordinates for reference
+            let mut x0_bytes = [0u8; 32];
+            let mut x1_bytes = [0u8; 32];
+            let mut y0_bytes = [0u8; 32];
+            let mut y1_bytes = [0u8; 32];
+            x.real().to_big_endian(&mut x0_bytes).unwrap();
+            x.imaginary().to_big_endian(&mut x1_bytes).unwrap();
+            y.real().to_big_endian(&mut y0_bytes).unwrap();
+            y.imaginary().to_big_endian(&mut y1_bytes).unwrap();
 
-        let x_bytes: [u8; 64] = unsafe { std::mem::transmute(x.0) };
-        let y_bytes: [u8; 64] = unsafe { std::mem::transmute(y.0) };
-
-        println!("G2 generator x: {:?}", x_bytes);
-        println!("G2 generator y: {:?}", y_bytes);
-
-        // Convert the G2 generator point to Arkworks representation
-        let ark_g2_one = convert_g2_sub_to_ark(g2_one);
-
-        // Print the coordinates for reference
-        let mut x0_bytes = [0u8; 32];
-        let mut x1_bytes = [0u8; 32];
-        let mut y0_bytes = [0u8; 32];
-        let mut y1_bytes = [0u8; 32];
-        x.real().to_big_endian(&mut x0_bytes).unwrap();
-        x.imaginary().to_big_endian(&mut x1_bytes).unwrap();
-        y.real().to_big_endian(&mut y0_bytes).unwrap();
-        y.imaginary().to_big_endian(&mut y1_bytes).unwrap();
-        println!("G2 generator x0: {:?}", x0_bytes);
-        println!("G2 generator x1: {:?}", x1_bytes);
-        println!("G2 generator y0: {:?}", y0_bytes);
-        println!("G2 generator y1: {:?}", y1_bytes);
-
-        // Print the Arkworks representation
-        let ark_g2_x0: [u8; 32] = unsafe { std::mem::transmute(ark_g2_one.x().unwrap().c0.0) };
-        let ark_g2_x1: [u8; 32] = unsafe { std::mem::transmute(ark_g2_one.x().unwrap().c1.0) };
-        let ark_g2_y0: [u8; 32] = unsafe { std::mem::transmute(ark_g2_one.y().unwrap().c0.0) };
-        let ark_g2_y1: [u8; 32] = unsafe { std::mem::transmute(ark_g2_one.y().unwrap().c1.0) };
-        println!("Arkworks G2 generator x0: {:?}", ark_g2_x0);
-        println!("Arkworks G2 generator x1: {:?}", ark_g2_x1);
-        println!("Arkworks G2 generator y0: {:?}", ark_g2_y0);
-        println!("Arkworks G2 genrator y1: {:?}", ark_g2_y1);
-
-        assert_eq!(g2_one, convert_g2_ark_to_sub(convert_g2_sub_to_ark(g2_one)));
+            assert_eq!(g, convert_g2_ark_to_sub(convert_g2_sub_to_ark(g)));
+            assert_eq!(g, convert_g2_ark_to_sub(ark_g));
+        }
     }
 }

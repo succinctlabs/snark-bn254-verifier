@@ -5,6 +5,8 @@ use num_traits::Num;
 use std::cmp::Ordering;
 use substrate_bn::Fr;
 
+use crate::groth16::convert_fr_sub_to_ark;
+
 #[derive(Clone, Debug)]
 pub(crate) struct PlonkFr(Fr);
 
@@ -18,6 +20,7 @@ lazy_static! {
 
 impl PlonkFr {
     pub(crate) fn set_bytes(bytes: &[u8]) -> Result<Self> {
+        println!("SETTING BYTES: {:?}", bytes);
         let biguint_bytes = BigInt::from_bytes_be(Sign::Plus, bytes);
 
         let cmp = biguint_bytes.cmp(&MODULUS);
@@ -30,8 +33,10 @@ impl PlonkFr {
         // Mod the bytes with MODULUS
         let biguint_bytes = BigInt::from_bytes_be(Sign::Plus, bytes);
         let biguint_mod = biguint_bytes % &*MODULUS;
-        let (_, bytes_le) = biguint_mod.to_bytes_le();
+        let (_, bytes_le) = biguint_mod.to_bytes_be();
         let e = Fr::from_slice(&bytes_le).map_err(Error::msg)?;
+        let ark_e = convert_fr_sub_to_ark(e);
+        println!("e as ark-bn254 Fr: {:?}", ark_e);
 
         Ok(PlonkFr(e))
     }
