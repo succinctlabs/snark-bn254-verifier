@@ -41,21 +41,16 @@ pub(crate) struct Groth16VerifyingKey {
 
 pub fn convert_g1_sub_to_ark(p: AffineG1) -> G1Affine {
     let p_bytes: [u8; 64] = unsafe { std::mem::transmute(p) };
+    println!("p_bytes: {:?}", p_bytes);
     G1Affine::deserialize_uncompressed(&p_bytes[..]).unwrap()
 }
 
 pub fn convert_g1_ark_to_sub(p: G1Affine) -> AffineG1 {
-    let x = p.x().expect("x is none");
-    let y = p.y().expect("y is none");
-
-    let x_bytes: [u8; 32] = unsafe { std::mem::transmute(*x) };
-    let y_bytes: [u8; 32] = unsafe { std::mem::transmute(*y) };
-    println!("x bytes: {:?}", x_bytes);
-    println!("y bytes: {:?}", y_bytes);
-    let x_fq: substrate_bn::Fq = unsafe { std::mem::transmute(*x) };
-    let y_fq: substrate_bn::Fq = unsafe { std::mem::transmute(*y) };
-
-    AffineG1::new(x_fq, y_fq).expect("Failed to create AffineG1")
+    AffineG1::new(
+        substrate_bn::Fq::from_str(&p.x.to_string()).unwrap(),
+        substrate_bn::Fq::from_str(&p.y.to_string()).unwrap(),
+    )
+    .expect("Failed to create AffineG1")
 }
 
 pub fn convert_g2_sub_to_ark(p: AffineG2) -> G2Affine {
@@ -64,12 +59,21 @@ pub fn convert_g2_sub_to_ark(p: AffineG2) -> G2Affine {
 }
 
 pub fn convert_g2_ark_to_sub(p: G2Affine) -> AffineG2 {
-    let x = p.x().expect("x is none");
-    let y = p.y().expect("y is none");
-    let x_fq: substrate_bn::Fq2 = unsafe { std::mem::transmute(*x) };
-    let y_fq: substrate_bn::Fq2 = unsafe { std::mem::transmute(*y) };
-
-    AffineG2::new(x_fq, y_fq).expect("Failed to create AffineG2")
+    let x0 = p.x().unwrap().c0.to_string();
+    let x1 = p.x().unwrap().c1.to_string();
+    let y0 = p.y().unwrap().c0.to_string();
+    let y1 = p.y().unwrap().c1.to_string();
+    AffineG2::new(
+        substrate_bn::Fq2::new(
+            substrate_bn::Fq::from_str(&x0).unwrap(),
+            substrate_bn::Fq::from_str(&x1).unwrap(),
+        ),
+        substrate_bn::Fq2::new(
+            substrate_bn::Fq::from_str(&y0).unwrap(),
+            substrate_bn::Fq::from_str(&y1).unwrap(),
+        ),
+    )
+    .expect("Failed to create AffineG2")
 }
 
 pub fn convert_fr_sub_to_ark(p: Fr) -> ark_bn254::Fr {

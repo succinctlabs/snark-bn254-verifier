@@ -60,7 +60,8 @@ mod tfms_tests {
     use ark_ec::AffineRepr;
     use ark_ff::BigInteger;
     use groth16::{
-        convert_fr_sub_to_ark, convert_g1_ark_to_sub, convert_g1_sub_to_ark, convert_g2_sub_to_ark,
+        convert_fr_sub_to_ark, convert_g1_ark_to_sub, convert_g1_sub_to_ark, convert_g2_ark_to_sub,
+        convert_g2_sub_to_ark,
     };
     use substrate_bn::{AffineG1, AffineG2, Fq, Fq2, Fr};
 
@@ -72,7 +73,7 @@ mod tfms_tests {
 
         let mut rng = rand::thread_rng();
         {
-            for _ in 0..1 {
+            for _ in 0..10 {
                 let p = Fr::from_str(&rng.gen::<u64>().to_string()).unwrap();
 
                 let mut p_bytes = [0u8; 32];
@@ -83,7 +84,7 @@ mod tfms_tests {
             }
         }
         {
-            for _ in 0..1 {
+            for _ in 0..10 {
                 // Generate a random x coordinate
                 let x = Fq::random(&mut rng);
 
@@ -196,24 +197,8 @@ mod tfms_tests {
         println!("Arkworks G2 generator x0: {:?}", ark_g2_x0);
         println!("Arkworks G2 generator x1: {:?}", ark_g2_x1);
         println!("Arkworks G2 generator y0: {:?}", ark_g2_y0);
-        println!("Arkworks G2 generator y1: {:?}", ark_g2_y1);
+        println!("Arkworks G2 genrator y1: {:?}", ark_g2_y1);
 
-        // // Verify that the conversion is correct
-        // assert_eq!(
-        //     x.real(),
-        //     Fq::from_str(&ark_g2_one.x.c0.to_string()).unwrap()
-        // );
-        // assert_eq!(
-        //     x.imaginary(),
-        //     Fq::from_str(&ark_g2_one.x.c1.to_string()).unwrap()
-        // );
-        // assert_eq!(
-        //     y.real(),
-        //     Fq::from_str(&ark_g2_one.y.c0.to_string()).unwrap()
-        // );
-        // assert_eq!(
-        //     y.imaginary(),
-        //     Fq::from_str(&ark_g2_one.y.c1.to_string()).unwrap()
-        // );
+        assert_eq!(g2_one, convert_g2_ark_to_sub(convert_g2_sub_to_ark(g2_one)));
     }
 }
