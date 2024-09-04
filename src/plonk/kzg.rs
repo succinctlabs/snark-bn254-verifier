@@ -1,9 +1,12 @@
 use anyhow::{anyhow, Result};
+use ark_bn254::G1Projective;
+use ark_ec::{CurveGroup, VariableBaseMSM};
 use rand::rngs::OsRng;
 use substrate_bn::{pairing_batch, AffineG1, Fr, G1, G2};
 
 use crate::{
     constants::{ERR_INVALID_NUMBER_OF_DIGESTS, ERR_PAIRING_CHECK_FAILED, GAMMA},
+    groth16::{convert_fr_sub_to_ark, convert_g1_ark_to_sub, convert_g1_sub_to_ark},
     transcript::Transcript,
 };
 
@@ -68,6 +71,7 @@ fn derive_gamma(
     }
 
     let gamma_byte = transcript.compute_challenge(GAMMA)?;
+    println!("gamma_byte: {:?}", gamma_byte);
     let x = PlonkFr::set_bytes(&gamma_byte.as_slice())?.into_fr()?;
 
     Ok(x)
@@ -82,9 +86,20 @@ fn fold(di: Vec<Digest>, fai: Vec<Fr>, ci: Vec<Fr>) -> Result<(G1, Fr)> {
         folded_evaluations += fai[i] * ci[i];
     }
 
-    let folded_digests = G1::msm(&di.iter().map(|&p| p.into()).collect::<Vec<_>>(), &ci);
+    let msm = G1Projective::msm(
+        &di.iter()
+            .map(|p| convert_g1_sub_to_ark(*p))
+            .collect::<Vec<_>>(),
+        &ci.iter()
+            .map(|s| convert_fr_sub_to_ark(*s))
+            .collect::<Vec<_>>(),
+    )
+    .map_err(|e| anyhow!(e))?
+    .into_affine();
+    let folded_digests = convert_g1_ark_to_sub(msm);
+    // let folded_digests = G1::msm(&di.iter().map(|&p| p.into()).collect::<Vec<_>>(), &ci);
 
-    Ok((folded_digests, folded_evaluations))
+    Ok((folded_digests.into(), folded_evaluations))
 }
 
 pub(crate) fn fold_proof(
@@ -98,13 +113,13 @@ pub(crate) fn fold_proof(
     if nb_digests != batch_opening_proof.claimed_values.len() {
         return Err(anyhow!(ERR_INVALID_NUMBER_OF_DIGESTS));
     }
-
     let gamma = derive_gamma(
         point,
         digests.clone(),
         batch_opening_proof.claimed_values.clone(),
         data_transcript,
     )?;
+    println!("gamma as ark-bn: {:?}", convert_fr_sub_to_ark(gamma));
 
     let mut gammai = vec![Fr::zero(); nb_digests];
     gammai[0] = Fr::one();
@@ -114,9 +129,21 @@ pub(crate) fn fold_proof(
     for i in 2..nb_digests {
         gammai[i] = gammai[i - 1] * gamma;
     }
+    gammai.iter().enumerate().for_each(|(i, gamma)| {
+        println!("gamma[{i}] as ark-bn: {:?}", convert_fr_sub_to_ark(*gamma));
+    });
 
     let (folded_digests, folded_evaluations) =
         fold(digests, batch_opening_proof.claimed_values.clone(), gammai)?;
+
+    println!(
+        "folded_evaluations as ark-bn: {:?}",
+        convert_fr_sub_to_ark(folded_evaluations)
+    );
+    println!(
+        "folded_digests as ark-bn: {:?}",
+        convert_g1_sub_to_ark(folded_digests.into())
+    );
 
     let open_proof = OpeningProof {
         h: batch_opening_proof.h,
@@ -197,10 +224,23 @@ pub(crate) fn batch_verify_multi_points(
         quotients.push(proofs[i].h);
     }
 
-    let mut folded_quotients = G1::msm(
-        &quotients.iter().map(|&p| p.into()).collect::<Vec<_>>(),
-        &random_numbers,
-    );
+    // let mut folded_quotients = G1::msm(
+    //     &quotients.iter().map(|&p| p.into()).collect::<Vec<_>>(),
+    //     &random_numbers,
+    // );
+    let msm = G1Projective::msm(
+        &quotients
+            .iter()
+            .map(|p| convert_g1_sub_to_ark(*p))
+            .collect::<Vec<_>>(),
+        &random_numbers
+            .iter()
+            .map(|s| convert_fr_sub_to_ark(*s))
+            .collect::<Vec<_>>(),
+    )
+    .map_err(|e| anyhow!(e))?
+    .into_affine();
+    let mut folded_quotients: G1 = convert_g1_ark_to_sub(msm).into();
 
     let mut evals = Vec::with_capacity(nb_digests);
     for i in 0..nb_digests {
@@ -215,10 +255,23 @@ pub(crate) fn batch_verify_multi_points(
         random_numbers[i] = random_numbers[i] * points[i];
     }
 
-    let folded_points_quotients = G1::msm(
-        &quotients.iter().map(|&p| p.into()).collect::<Vec<_>>(),
-        &random_numbers,
-    );
+    // let folded_points_quotients = G1::msm(
+    //     &quotients.iter().map(|&p| p.into()).collect::<Vec<_>>(),
+    //     &random_numbers,
+    // );
+    let msm = G1Projective::msm(
+        &quotients
+            .iter()
+            .map(|p| convert_g1_sub_to_ark(*p))
+            .collect::<Vec<_>>(),
+        &random_numbers
+            .iter()
+            .map(|s| convert_fr_sub_to_ark(*s))
+            .collect::<Vec<_>>(),
+    )
+    .map_err(|e| anyhow!(e))?
+    .into_affine();
+    let folded_points_quotients: G1 = convert_g1_ark_to_sub(msm).into();
 
     folded_digests = folded_digests + folded_points_quotients;
     folded_quotients = -folded_quotients;
