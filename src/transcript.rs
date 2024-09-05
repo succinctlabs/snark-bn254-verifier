@@ -55,14 +55,24 @@ impl Transcript {
     }
 
     pub(crate) fn bind(&mut self, id: &str, binding: &[u8]) -> Result<()> {
-        let current_challenge = self.challenges.get_mut(id).expect(ERR_CHALLENGE_NOT_FOUND);
+        println!("cycle-tracker-start: bind");
 
+        println!("cycle-tracker-start: get_challenge");
+        let current_challenge = self.challenges.get_mut(id).expect(ERR_CHALLENGE_NOT_FOUND);
+        println!("cycle-tracker-end: get_challenge");
+
+        println!("cycle-tracker-start: check_computed");
         if current_challenge.is_computed {
+            println!("cycle-tracker-end: check_computed");
             return Err(anyhow!(ERR_CHALLENGE_ALREADY_COMPUTED));
         }
+        println!("cycle-tracker-end: check_computed");
 
+        println!("cycle-tracker-start: push_binding");
         current_challenge.bindings.push(binding.to_vec());
+        println!("cycle-tracker-end: push_binding");
 
+        println!("cycle-tracker-end: bind");
         Ok(())
     }
 
