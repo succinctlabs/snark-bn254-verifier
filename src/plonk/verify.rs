@@ -44,7 +44,6 @@ pub fn verify_plonk(
     public_inputs: &[Fr],
 ) -> Result<bool> {
     use crate::groth16::{convert_fr_sub_to_ark, convert_g1_sub_to_ark};
-    use ark_bn254::{Fr as ArkFr, G1Affine as ArkG1Affine};
 
     if proof.bsb22_commitments.len() != vk.qcp.len() {
         return Err(anyhow::anyhow!(ERR_BSB22_COMMITMENT_MISMATCH));
@@ -241,37 +240,11 @@ pub fn verify_plonk(
     scalars.push(zeta_n_plus_two_zh);
     scalars.push(zeta_n_plus_two_square_zh);
 
-    println!("Points as ark-bn:");
-    for (i, point) in points.iter().enumerate() {
-        println!("  point[{}]: {:?}", i, convert_g1_sub_to_ark(*point));
-    }
-
-    println!("Scalars as ark-bn:");
-    for (i, scalar) in scalars.iter().enumerate() {
-        println!("  scalar[{}]: {:?}", i, convert_fr_sub_to_ark(*scalar));
-    }
-    // let linearized_polynomial_digest = G1::msm(
-    //     &points.iter().map(|&p| p.into()).collect::<Vec<_>>(),
-    //     &scalars,
-    // )
-    // .into();
-    let msm = G1Projective::msm(
-        &points
-            .iter()
-            .map(|p| convert_g1_sub_to_ark(*p))
-            .collect::<Vec<_>>(),
-        &scalars
-            .iter()
-            .map(|s| convert_fr_sub_to_ark(*s))
-            .collect::<Vec<_>>(),
+    let linearized_polynomial_digest = G1::msm(
+        &points.iter().map(|&p| p.into()).collect::<Vec<_>>(),
+        &scalars,
     )
-    .map_err(|e| anyhow!(e))?
-    .into_affine();
-    let linearized_polynomial_digest = convert_g1_ark_to_sub(msm);
-    println!(
-        "linearized_polynomial_digest: {:?}",
-        convert_g1_sub_to_ark(linearized_polynomial_digest)
-    );
+    .into();
 
     let mut digests_to_fold = vec![AffineG1::default(); vk.qcp.len() + 6];
     digests_to_fold[6..].copy_from_slice(&vk.qcp);
@@ -282,24 +255,6 @@ pub fn verify_plonk(
     digests_to_fold[4] = vk.s[0];
     digests_to_fold[5] = vk.s[1];
 
-    println!("digests_to_fold as ark-bn:");
-    for (i, digest) in digests_to_fold.iter().enumerate() {
-        println!("  digest[{}]: {:?}", i, convert_g1_sub_to_ark(*digest));
-    }
-
-    println!("proof.batched_proof as ark-bn:");
-    println!("  h: {:?}", convert_g1_sub_to_ark(proof.batched_proof.h));
-    println!("  claimed_values:");
-    for (i, value) in proof.batched_proof.claimed_values.iter().enumerate() {
-        println!("    value[{}]: {:?}", i, convert_fr_sub_to_ark(*value));
-    }
-
-    println!("zeta as ark-bn: {:?}", convert_fr_sub_to_ark(zeta));
-
-    println!("zu.into_u256().to_bytes_be() as ark-bn:");
-    let zu_bytes = zu.into_u256().to_bytes_be();
-    println!("{:?}", zu_bytes);
-
     let (folded_proof, folded_digest) = kzg::fold_proof(
         digests_to_fold,
         &proof.batched_proof,
@@ -309,28 +264,6 @@ pub fn verify_plonk(
 
     let shifted_zeta = zeta * vk.generator;
     let folded_digest: AffineG1 = folded_digest.into();
-
-    println!("proof.z: {:?}", convert_g1_sub_to_ark(proof.z));
-    println!(
-        "proof.z_shifted_opening.h: {:?}",
-        convert_g1_sub_to_ark(proof.z_shifted_opening.h)
-    );
-    println!(
-        "proof.z_shifted_opening.claimed_value: {:?}",
-        convert_fr_sub_to_ark(proof.z_shifted_opening.claimed_value)
-    );
-    println!("zeta: {:?}", convert_fr_sub_to_ark(zeta));
-    println!("shifted_zeta: {:?}", convert_fr_sub_to_ark(shifted_zeta));
-    println!("vk.kzg: {:?}", vk.kzg);
-    println!("folded_digest: {:?}", convert_g1_sub_to_ark(folded_digest));
-    println!(
-        "folded_proof.h: {:?}",
-        convert_g1_sub_to_ark(folded_proof.h)
-    );
-    println!(
-        "folded_proof.claimed_value: {:?}",
-        convert_fr_sub_to_ark(folded_proof.claimed_value)
-    );
 
     kzg::batch_verify_multi_points(
         [folded_digest, proof.z].to_vec(),
@@ -382,7 +315,6 @@ fn derive_randomness(
     }
 
     let b = transcript.compute_challenge(challenge)?;
-    println!("derive_randomness.b: {:?}", b);
     let x = PlonkFr::set_bytes(&b.as_slice())?.into_fr()?;
     Ok(x)
 }

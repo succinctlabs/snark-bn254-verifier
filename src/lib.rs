@@ -41,24 +41,12 @@ impl Verifier for PlonkVerifier {
     type Fr = substrate_bn::Fr;
 
     fn verify(proof: &[u8], vk: &[u8], public_inputs: &[Self::Fr]) -> bool {
-        println!("Loading PLONK proof from bytes...");
         let proof = load_plonk_proof_from_bytes(proof).unwrap();
-        println!("PLONK proof loaded successfully");
-
-        println!("Loading PLONK verifying key from bytes...");
         let vk = load_plonk_verifying_key_from_bytes(vk).unwrap();
-        println!("PLONK verifying key loaded successfully");
 
-        println!("Verifying PLONK proof...");
         match verify_plonk(&vk, &proof, public_inputs) {
-            Ok(result) => {
-                println!("PLONK verification result: {}", result);
-                result
-            }
-            Err(e) => {
-                println!("Error during PLONK verification: {:?}", e);
-                false
-            }
+            Ok(result) => result,
+            Err(_) => false,
         }
     }
 }
@@ -135,8 +123,6 @@ mod tfms_tests {
                     let mut y_bytes = [0u8; 32];
                     p.x().to_big_endian(&mut x_bytes).unwrap();
                     p.y().to_big_endian(&mut y_bytes).unwrap();
-                    println!("x bytes before: {:?}", x_bytes);
-                    println!("y bytes before: {:?}", y_bytes);
 
                     assert_eq!(p, convert_g1_ark_to_sub(convert_g1_sub_to_ark(p)));
                 }
