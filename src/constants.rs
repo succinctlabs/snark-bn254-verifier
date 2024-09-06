@@ -12,7 +12,7 @@ pub(crate) const ERR_INVERSE_NOT_FOUND: &str = "Inverse not found";
 pub(crate) const ERR_OPENING_POLY_MISMATCH: &str = "Opening linear polynomial mismatch";
 pub(crate) const ERR_FAILED_TO_GET_X: &str = "Failed to get x";
 pub(crate) const ERR_FAILED_TO_GET_Y: &str = "Failed to get y";
-pub(crate) const EinRR_FAILED_TO_GET_FR_FROM_RANDOM_BYTES: &str =
+pub(crate) const ERR_FAILED_TO_GET_FR_FROM_RANDOM_BYTES: &str =
     "Failed to get Fr from random bytes";
 pub(crate) const ERR_ELL_TOO_LARGE: &str = "ell too large";
 pub(crate) const ERR_DST_TOO_LARGE: &str = "dst too large";

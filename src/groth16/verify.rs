@@ -1,11 +1,9 @@
 use anyhow::Result;
 use ark_bn254::{Bn254, G1Affine, G2Affine};
 use ark_ec::AffineRepr;
-use ark_ff::{fields::PrimeField, BigInt, BigInteger};
 use ark_groth16::{Groth16, Proof as ArkGroth16Proof, VerifyingKey as ArkGroth16VerifyingKey};
 use ark_serialize::CanonicalDeserialize;
 use ark_snark::SNARK;
-use num_bigint::{BigUint, Sign};
 use substrate_bn::{AffineG1, AffineG2, Fr};
 
 use super::Groth16Proof;

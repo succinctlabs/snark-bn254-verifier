@@ -62,15 +62,26 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
 fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
     use ark_serialize::CanonicalDeserialize;
 
+    println!("cycle-tracker-start: gnark_compressed_x_to_g2_point");
+
     if buf.len() != 64 {
+        println!("cycle-tracker-end: gnark_compressed_x_to_g2_point");
         return Err(anyhow!(SerializationError::InvalidData));
     };
 
+    println!("cycle-tracker-start: gnark_commpressed_x_to_ark_commpressed_x");
     let bytes = gnark_commpressed_x_to_ark_commpressed_x(&buf.to_vec())?;
+    println!("cycle-tracker-end: gnark_commpressed_x_to_ark_commpressed_x");
 
+    println!("cycle-tracker-start: deserialize_compressed");
     let p = ark_bn254::G2Affine::deserialize_compressed::<&[u8]>(&bytes).map_err(Error::msg)?;
-    let p = convert_g2_ark_to_sub(p);
+    println!("cycle-tracker-end: deserialize_compressed");
 
+    println!("cycle-tracker-start: convert_g2_ark_to_sub");
+    let p = convert_g2_ark_to_sub(p);
+    println!("cycle-tracker-end: convert_g2_ark_to_sub");
+
+    println!("cycle-tracker-end: gnark_compressed_x_to_g2_point");
     Ok(p)
 }
 
@@ -166,7 +177,7 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
         offset += 8;
     }
 
-    Ok(PlonkVerifyingKey {
+    let result = PlonkVerifyingKey {
         size,
         size_inv,
         generator,
@@ -194,7 +205,9 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
         qk,
         qcp,
         commitment_constraint_indexes,
-    })
+    };
+
+    Ok(result)
 }
 
 pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
@@ -256,39 +269,6 @@ pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
 }
 
 pub(crate) fn g1_to_bytes(g1: &AffineG1) -> Result<Vec<u8>> {
-    // println!("cycle-tracker-start: g1_to_bytes");
-
-    // println!("cycle-tracker-start: convert_g1");
-    // let g1 = convert_g1_sub_to_ark(*g1);
-    // println!("cycle-tracker-end: convert_g1");
-
-    // println!("cycle-tracker-start: initialize_bytes");
-    // let mut bytes = vec![];
-    // println!("cycle-tracker-end: initialize_bytes");
-
-    // println!("cycle-tracker-start: get_x_value");
-    // let value_x = g1
-    //     .x()
-    //     .expect(ERR_FAILED_TO_GET_X)
-    //     .into_bigint()
-    //     .to_bytes_be();
-    // println!("cycle-tracker-end: get_x_value");
-
-    // println!("cycle-tracker-start: get_y_value");
-    // let value_y = g1
-    //     .y()
-    //     .expect(ERR_FAILED_TO_GET_Y)
-    //     .into_bigint()
-    //     .to_bytes_be();
-    // println!("cycle-tracker-end: get_y_value");
-
-    // println!("cycle-tracker-start: extend_bytes");
-    // bytes.extend_from_slice(&value_x);
-    // bytes.extend_from_slice(&value_y);
-    // println!("cycle-tracker-end: extend_bytes");
-
-    // println!("cycle-tracker-end: g1_to_bytes");
-    // Ok(bytes)
     let mut bytes: [u8; 64] = unsafe { std::mem::transmute(*g1) };
     bytes[..32].reverse();
     bytes[32..].reverse();
