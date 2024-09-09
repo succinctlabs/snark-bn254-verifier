@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
-use rand::rngs::OsRng;
 use bn::{pairing_batch, AffineG1, Fr, G1, G2};
+use rand::rngs::OsRng;
 
 use crate::{
     constants::{ERR_INVALID_NUMBER_OF_DIGESTS, ERR_PAIRING_CHECK_FAILED, GAMMA},
@@ -52,46 +52,29 @@ fn derive_gamma(
     claimed_values: Vec<Fr>,
     data_transcript: Option<Vec<u8>>,
 ) -> Result<Fr> {
-    println!("cycle-tracker-start: create_transcript");
     let mut transcript = Transcript::new(Some([GAMMA.to_string()].to_vec()))?;
-    println!("cycle-tracker-end: create_transcript");
-
-    println!("cycle-tracker-start: bind_point");
     transcript.bind(GAMMA, &point.into_u256().to_bytes_be())?;
-    println!("cycle-tracker-end: bind_point");
 
-    println!("cycle-tracker-start: bind_digests");
     for digest in digests.iter() {
         transcript.bind(GAMMA, &g1_to_bytes(digest)?)?;
     }
-    println!("cycle-tracker-end: bind_digests");
 
-    println!("cycle-tracker-start: bind_claimed_values");
     for claimed_value in claimed_values.iter() {
         transcript.bind(GAMMA, &claimed_value.into_u256().to_bytes_be())?;
     }
-    println!("cycle-tracker-end: bind_claimed_values");
 
-    println!("cycle-tracker-start: bind_data_transcript");
     if let Some(data_transcript) = data_transcript {
         transcript.bind(GAMMA, &data_transcript)?;
     }
-    println!("cycle-tracker-end: bind_data_transcript");
 
-    println!("cycle-tracker-start: compute_challenge");
     let gamma_byte = transcript.compute_challenge(GAMMA)?;
-    println!("cycle-tracker-end: compute_challenge");
-
-    println!("cycle-tracker-start: convert_challenge");
     let x = PlonkFr::set_bytes(&gamma_byte.as_slice())?.into_fr()?;
-    println!("cycle-tracker-end: convert_challenge");
 
     Ok(x)
 }
 
 fn fold(di: Vec<Digest>, fai: Vec<Fr>, ci: Vec<Fr>) -> Result<(G1, Fr)> {
     let nb_digests = di.len();
-
     let mut folded_evaluations = Fr::zero();
 
     for i in 0..nb_digests {
@@ -109,93 +92,40 @@ pub(crate) fn fold_proof(
     point: &Fr,
     data_transcript: Option<Vec<u8>>,
 ) -> Result<(OpeningProof, G1)> {
-    println!("cycle-tracker-start: get_nb_digests");
     let nb_digests = digests.len();
-    println!("cycle-tracker-end: get_nb_digests");
 
-    println!("cycle-tracker-start: check_nb_digests");
     if nb_digests != batch_opening_proof.claimed_values.len() {
         return Err(anyhow!(ERR_INVALID_NUMBER_OF_DIGESTS));
     }
-    println!("cycle-tracker-end: check_nb_digests");
 
-    println!("cycle-tracker-start: derive_gamma");
     let gamma = derive_gamma(
         point,
         digests.clone(),
         batch_opening_proof.claimed_values.clone(),
         data_transcript,
     )?;
-    println!("cycle-tracker-end: derive_gamma");
 
-    println!("cycle-tracker-start: initialize_gammai");
     let mut gammai = vec![Fr::zero(); nb_digests];
     gammai[0] = Fr::one();
-    println!("cycle-tracker-end: initialize_gammai");
 
-    println!("cycle-tracker-start: set_gamma_if_needed");
     if nb_digests > 1 {
         gammai[1] = gamma;
     }
-    println!("cycle-tracker-end: set_gamma_if_needed");
 
-    println!("cycle-tracker-start: calculate_gammai");
     for i in 2..nb_digests {
         gammai[i] = gammai[i - 1] * gamma;
     }
-    println!("cycle-tracker-end: calculate_gammai");
 
-    println!("cycle-tracker-start: fold_digests_and_evaluations");
     let (folded_digests, folded_evaluations) =
         fold(digests, batch_opening_proof.claimed_values.clone(), gammai)?;
-    println!("cycle-tracker-end: fold_digests_and_evaluations");
 
-    println!("cycle-tracker-start: create_open_proof");
     let open_proof = OpeningProof {
         h: batch_opening_proof.h,
         claimed_value: folded_evaluations,
     };
-    println!("cycle-tracker-end: create_open_proof");
 
     Ok((open_proof, folded_digests))
 }
-
-// fn verify(
-//     commitment: &Digest,
-//     proof: &OpeningProof,
-//     point: &Fr,
-//     vk: &PlonkVerifyingKey,
-// ) -> Result<bool, &'static str> {
-//     let mut total_g1 = G1::zero();
-//     let point_neg = -(*point);
-//     let cm_int = proof.claimed_value.into_repr();
-//     let point_int = point_neg.into_repr();
-
-//     // Perform joint scalar multiplication
-//     let scalars = vec![cm_int, point_int];
-//     let bases = vec![vk.g1.into_projective(), proof.h.into_projective()];
-//     total_g1 = G1Projective::msm_unchecked(&bases, &scalars);
-
-//     // [f(a) - a*H(α)]G1 + [-f(α)]G1 = [f(a) - f(α) - a*H(α)]G1
-//     let commitment_jac = commitment.0.into_projective();
-//     total_g1 -= commitment_jac;
-
-//     // Convert total_g1 to affine
-//     let total_g1_aff = total_g1.into_affine();
-
-//     // Perform the pairing check
-//     let check = Bn254::product_of_pairings(&[
-//         (total_g1_aff.prepare(), vk.lines[0].clone()),
-//         (proof.h.prepare(), vk.lines[1].clone()),
-//     ]);
-
-//     // Check if the result is 1 (pairing check passed)
-//     if check.is_one() {
-//         Ok(())
-//     } else {
-//         Err("Verification failed".into())
-//     }
-// }
 
 pub(crate) fn batch_verify_multi_points(
     digests: Vec<Digest>,

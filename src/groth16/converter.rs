@@ -68,7 +68,6 @@ fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
 
     let bytes = gnark_commpressed_x_to_ark_commpressed_x(&buf.to_vec())?;
     let point = AffineG2::deserialize_compressed(&bytes).map_err(Error::msg)?;
-    println!("point: {:?}", point);
 
     let (x0, _) = deserialize_with_flags(&buf[..32])?;
     let (x1, flag) = deserialize_with_flags(&buf[32..64])?;
@@ -81,10 +80,6 @@ fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
     let (y, neg_y) = AffineG2::get_ys_from_x_unchecked(x)
         .ok_or(SerializationError::InvalidData)
         .map_err(Error::msg)?;
-
-    println!("x: {:?}", x);
-    println!("y: {:?}", y);
-    println!("neg_y: {:?}", neg_y);
 
     match flag {
         GnarkCompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::msg)?),
