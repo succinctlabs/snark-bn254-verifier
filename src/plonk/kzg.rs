@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use rand::rngs::OsRng;
-use substrate_bn::{pairing_batch, AffineG1, Fr, G1, G2};
+use bn::{pairing_batch, AffineG1, Fr, G1, G2};
 
 use crate::{
     constants::{ERR_INVALID_NUMBER_OF_DIGESTS, ERR_PAIRING_CHECK_FAILED, GAMMA},
