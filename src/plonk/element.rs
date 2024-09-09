@@ -1,9 +1,9 @@
 use anyhow::{Error, Ok, Result};
+use bn::Fr;
 use lazy_static::lazy_static;
 use num_bigint::{BigInt, Sign};
 use num_traits::Num;
 use std::cmp::Ordering;
-use substrate_bn::Fr;
 
 #[derive(Clone, Debug)]
 pub(crate) struct PlonkFr(Fr);

@@ -3,7 +3,7 @@ use std::hash::Hasher;
 use anyhow::{anyhow, Error, Result};
 use ark_bn254::G1Projective;
 use ark_ec::{CurveGroup, VariableBaseMSM};
-use substrate_bn::{arith::U256, AffineG1, CurveError, Fr, G1};
+use bn::{arith::U256, AffineG1, CurveError, Fr, G1};
 
 use crate::{
     constants::{

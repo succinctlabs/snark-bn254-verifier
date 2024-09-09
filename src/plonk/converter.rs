@@ -2,14 +2,14 @@ use anyhow::{anyhow, Error, Result};
 use ark_ec::AffineRepr;
 use ark_ff::{BigInteger, PrimeField};
 use ark_serialize::SerializationError;
+use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
 use std::cmp::Ordering;
 use std::ops::Neg;
-use substrate_bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
 
 use crate::{
     constants::{
-        ERR_FAILED_TO_GET_X, ERR_FAILED_TO_GET_Y, GNARK_COMPRESSED_INFINITY,
-        GNARK_COMPRESSED_NEGATIVE, GNARK_COMPRESSED_POSTIVE, GNARK_MASK,
+        GnarkCompressedPointFlag, ERR_FAILED_TO_GET_X, ERR_FAILED_TO_GET_Y,
+        GNARK_COMPRESSED_INFINITY, GNARK_COMPRESSED_NEGATIVE, GNARK_COMPRESSED_POSTIVE, GNARK_MASK,
     },
     converter::{gnark_commpressed_x_to_ark_commpressed_x, is_zeroed},
     groth16::{convert_fr_sub_to_ark, convert_g1_sub_to_ark, convert_g2_ark_to_sub},
@@ -21,7 +21,71 @@ use super::{
     PlonkProof,
 };
 
-fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+// fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+//     if buf.len() != 32 {
+//         return Err(anyhow!(SerializationError::InvalidData));
+//     };
+
+//     let m_data = buf[0] & GNARK_MASK;
+//     if m_data == GNARK_COMPRESSED_INFINITY {
+//         if !is_zeroed(buf[0] & !GNARK_MASK, &buf[1..32])? {
+//             return Err(anyhow!(SerializationError::InvalidData));
+//         }
+//         Ok(AffineG1::one())
+//     } else {
+//         let mut x_bytes: [u8; 32] = [0u8; 32];
+//         x_bytes.copy_from_slice(buf);
+//         x_bytes[0] &= !GNARK_MASK;
+
+//         let x = Fq::from_slice(&x_bytes.to_vec()).map_err(Error::msg)?;
+//         let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
+//             .ok_or(SerializationError::InvalidData)
+//             .map_err(Error::msg)?;
+
+//         let mut final_y = y;
+//         if y.cmp(&neg_y) == Ordering::Greater {
+//             if m_data == GNARK_COMPRESSED_POSTIVE {
+//                 final_y = y.neg();
+//             }
+//         } else {
+//             if m_data == GNARK_COMPRESSED_NEGATIVE {
+//                 final_y = y.neg();
+//             }
+//         }
+
+//         let p = AffineG1::new(x, final_y).map_err(Error::msg)?;
+
+//         Ok(p)
+//     }
+// }
+
+// fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
+//     use ark_serialize::CanonicalDeserialize;
+
+//     println!("cycle-tracker-start: gnark_compressed_x_to_g2_point");
+
+//     if buf.len() != 64 {
+//         println!("cycle-tracker-end: gnark_compressed_x_to_g2_point");
+//         return Err(anyhow!(SerializationError::InvalidData));
+//     };
+
+//     println!("cycle-tracker-start: gnark_commpressed_x_to_ark_commpressed_x");
+//     let bytes = gnark_commpressed_x_to_ark_commpressed_x(&buf.to_vec())?;
+//     println!("cycle-tracker-end: gnark_commpressed_x_to_ark_commpressed_x");
+
+//     println!("cycle-tracker-start: deserialize_compressed");
+//     let p = ark_bn254::G2Affine::deserialize_compressed::<&[u8]>(&bytes).map_err(Error::msg)?;
+//     println!("cycle-tracker-end: deserialize_compressed");
+
+//     println!("cycle-tracker-start: convert_g2_ark_to_sub");
+//     let p = convert_g2_ark_to_sub(p);
+//     println!("cycle-tracker-end: convert_g2_ark_to_sub");
+
+//     println!("cycle-tracker-end: gnark_compressed_x_to_g2_point");
+//     Ok(p)
+// }
+
+fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, GnarkCompressedPointFlag)> {
     if buf.len() != 32 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
@@ -31,58 +95,63 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
         if !is_zeroed(buf[0] & !GNARK_MASK, &buf[1..32])? {
             return Err(anyhow!(SerializationError::InvalidData));
         }
-        Ok(AffineG1::one())
+        Ok((Fq::zero(), GnarkCompressedPointFlag::Infinity))
     } else {
         let mut x_bytes: [u8; 32] = [0u8; 32];
         x_bytes.copy_from_slice(buf);
         x_bytes[0] &= !GNARK_MASK;
 
-        let x = Fq::from_slice(&x_bytes.to_vec()).map_err(Error::msg)?;
-        let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
-            .ok_or(SerializationError::InvalidData)
-            .map_err(Error::msg)?;
+        let x = Fq::from_be_bytes_mod_order(&x_bytes.to_vec())
+            .expect("Failed to convert x bytes to Fq");
 
-        let mut final_y = y;
-        if y.cmp(&neg_y) == Ordering::Greater {
-            if m_data == GNARK_COMPRESSED_POSTIVE {
-                final_y = y.neg();
-            }
-        } else {
-            if m_data == GNARK_COMPRESSED_NEGATIVE {
-                final_y = y.neg();
-            }
-        }
-
-        let p = AffineG1::new(x, final_y).map_err(Error::msg)?;
-
-        Ok(p)
+        Ok((x, GnarkCompressedPointFlag::from(m_data)))
     }
 }
 
+fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+    let (x, m_data) = deserialize_with_flags(buf)?;
+    let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
+        .ok_or(SerializationError::InvalidData)
+        .map_err(Error::msg)?;
+
+    let mut final_y = y;
+    if y.cmp(&neg_y) == Ordering::Greater {
+        if m_data == GnarkCompressedPointFlag::Positive {
+            final_y = y.neg();
+        }
+    } else {
+        if m_data == GnarkCompressedPointFlag::Negative {
+            final_y = y.neg();
+        }
+    }
+
+    Ok(AffineG1::new(x, final_y).map_err(Error::msg)?)
+}
+
 fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
-    use ark_serialize::CanonicalDeserialize;
-
-    println!("cycle-tracker-start: gnark_compressed_x_to_g2_point");
-
     if buf.len() != 64 {
-        println!("cycle-tracker-end: gnark_compressed_x_to_g2_point");
         return Err(anyhow!(SerializationError::InvalidData));
     };
 
-    println!("cycle-tracker-start: gnark_commpressed_x_to_ark_commpressed_x");
-    let bytes = gnark_commpressed_x_to_ark_commpressed_x(&buf.to_vec())?;
-    println!("cycle-tracker-end: gnark_commpressed_x_to_ark_commpressed_x");
+    let (x1, flag) = deserialize_with_flags(&buf[..32]).expect("Failed to deserialize x1");
+    let x0 = Fq::from_be_bytes_mod_order(&buf[32..64])
+        .map_err(Error::msg)
+        .expect("Failed to deserialize x0");
+    let x = Fq2::new(x0, x1);
 
-    println!("cycle-tracker-start: deserialize_compressed");
-    let p = ark_bn254::G2Affine::deserialize_compressed::<&[u8]>(&bytes).map_err(Error::msg)?;
-    println!("cycle-tracker-end: deserialize_compressed");
+    if flag == GnarkCompressedPointFlag::Infinity {
+        return Ok(AffineG2::one());
+    }
 
-    println!("cycle-tracker-start: convert_g2_ark_to_sub");
-    let p = convert_g2_ark_to_sub(p);
-    println!("cycle-tracker-end: convert_g2_ark_to_sub");
+    let (y, neg_y) = AffineG2::get_ys_from_x_unchecked(x)
+        .ok_or(SerializationError::InvalidData)
+        .map_err(Error::msg)?;
 
-    println!("cycle-tracker-end: gnark_compressed_x_to_g2_point");
-    Ok(p)
+    match flag {
+        GnarkCompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::msg)?),
+        GnarkCompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::msg)?),
+        _ => Err(anyhow!(SerializationError::InvalidData)),
+    }
 }
 
 pub fn gnark_uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {

@@ -31,3 +31,27 @@ pub const ARK_MASK: u8 = 0b11 << 6;
 pub const ARK_COMPRESSED_POSTIVE: u8 = 0b00 << 6;
 pub const ARK_COMPRESSED_NEGATIVE: u8 = 0b10 << 6;
 pub const ARK_COMPRESSED_INFINITY: u8 = 0b01 << 6;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum GnarkCompressedPointFlag {
+    Positive = GNARK_COMPRESSED_POSTIVE as isize,
+    Negative = GNARK_COMPRESSED_NEGATIVE as isize,
+    Infinity = GNARK_COMPRESSED_INFINITY as isize,
+}
+
+impl Into<u8> for GnarkCompressedPointFlag {
+    fn into(self) -> u8 {
+        self as u8
+    }
+}
+
+impl From<u8> for GnarkCompressedPointFlag {
+    fn from(value: u8) -> Self {
+        match value {
+            GNARK_COMPRESSED_POSTIVE => GnarkCompressedPointFlag::Positive,
+            GNARK_COMPRESSED_NEGATIVE => GnarkCompressedPointFlag::Negative,
+            GNARK_COMPRESSED_INFINITY => GnarkCompressedPointFlag::Infinity,
+            _ => panic!("Invalid gnark compressed point flag"),
+        }
+    }
+}

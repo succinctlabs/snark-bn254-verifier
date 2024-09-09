@@ -19,7 +19,7 @@ pub trait Verifier {
 pub struct Groth16Verifier;
 
 impl Verifier for Groth16Verifier {
-    type Fr = substrate_bn::Fr;
+    type Fr = bn::Fr;
 
     fn verify(proof: &[u8], vk: &[u8], public_inputs: &[Self::Fr]) -> bool {
         let proof = load_groth16_proof_from_bytes(proof).unwrap();
@@ -38,7 +38,7 @@ impl Verifier for Groth16Verifier {
 pub struct PlonkVerifier;
 
 impl Verifier for PlonkVerifier {
-    type Fr = substrate_bn::Fr;
+    type Fr = bn::Fr;
 
     fn verify(proof: &[u8], vk: &[u8], public_inputs: &[Self::Fr]) -> bool {
         println!("cycle-tracker-start: load_plonk_proof");
@@ -61,11 +61,11 @@ mod tfms_tests {
     use ark_bn254::G2Affine;
     use ark_ec::AffineRepr;
     use ark_ff::BigInteger;
+    use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, Group, G1, G2};
     use groth16::{
         convert_fr_sub_to_ark, convert_g1_ark_to_sub, convert_g1_sub_to_ark, convert_g2_ark_to_sub,
         convert_g2_sub_to_ark,
     };
-    use substrate_bn::{AffineG1, AffineG2, Fq, Fq2, Fr, Group, G1, G2};
 
     use super::*;
 

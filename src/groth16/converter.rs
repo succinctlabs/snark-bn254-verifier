@@ -1,24 +1,24 @@
 use anyhow::{anyhow, Error, Result};
 use ark_serialize::SerializationError;
+use bn::{AffineG1, AffineG2, Fq, Fq2};
 use std::{
     cmp::{Ord, Ordering},
     ops::Neg,
 };
-use substrate_bn::{AffineG1, AffineG2, Fq};
 
 use crate::{
     constants::{
-        GNARK_COMPRESSED_INFINITY, GNARK_COMPRESSED_NEGATIVE, GNARK_COMPRESSED_POSTIVE, GNARK_MASK,
+        GnarkCompressedPointFlag, GNARK_COMPRESSED_INFINITY, GNARK_COMPRESSED_NEGATIVE,
+        GNARK_COMPRESSED_POSTIVE, GNARK_MASK,
     },
     converter::{gnark_commpressed_x_to_ark_commpressed_x, is_zeroed},
 };
 
-use super::{
-    verify::{Groth16G1, Groth16G2, Groth16VerifyingKey, PedersenVerifyingKey},
-    Groth16Proof,
+use groth16_verifier::{
+    Groth16G1, Groth16G2, Groth16Proof, Groth16VerifyingKey, PedersenVerifyingKey,
 };
 
-fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, GnarkCompressedPointFlag)> {
     if buf.len() != 32 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
@@ -28,7 +28,7 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
         if !is_zeroed(buf[0] & !GNARK_MASK, &buf[1..32])? {
             return Err(anyhow!(SerializationError::InvalidData));
         }
-        Ok(AffineG1::one())
+        Ok((Fq::zero(), GnarkCompressedPointFlag::Infinity))
     } else {
         let mut x_bytes: [u8; 32] = [0u8; 32];
         x_bytes.copy_from_slice(buf);
@@ -36,23 +36,29 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
 
         let x = Fq::from_be_bytes_mod_order(&x_bytes.to_vec())
             .expect("Failed to convert x bytes to Fq");
-        let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
-            .ok_or(SerializationError::InvalidData)
-            .map_err(Error::msg)?;
 
-        let mut final_y = y;
-        if y.cmp(&neg_y) == Ordering::Greater {
-            if m_data == GNARK_COMPRESSED_POSTIVE {
-                final_y = y.neg();
-            }
-        } else {
-            if m_data == GNARK_COMPRESSED_NEGATIVE {
-                final_y = y.neg();
-            }
-        }
-
-        AffineG1::new(x, final_y).map_err(Error::msg)
+        Ok((x, GnarkCompressedPointFlag::from(m_data)))
     }
+}
+
+fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+    let (x, m_data) = deserialize_with_flags(buf)?;
+    let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
+        .ok_or(SerializationError::InvalidData)
+        .map_err(Error::msg)?;
+
+    let mut final_y = y;
+    if y.cmp(&neg_y) == Ordering::Greater {
+        if m_data == GnarkCompressedPointFlag::Positive {
+            final_y = y.neg();
+        }
+    } else {
+        if m_data == GnarkCompressedPointFlag::Negative {
+            final_y = y.neg();
+        }
+    }
+
+    Ok(AffineG1::new(x, final_y).map_err(Error::msg)?)
 }
 
 fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
@@ -61,7 +67,30 @@ fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
     };
 
     let bytes = gnark_commpressed_x_to_ark_commpressed_x(&buf.to_vec())?;
-    AffineG2::deserialize_compressed(&bytes).map_err(Error::msg)
+    let point = AffineG2::deserialize_compressed(&bytes).map_err(Error::msg)?;
+    println!("point: {:?}", point);
+
+    let (x0, _) = deserialize_with_flags(&buf[..32])?;
+    let (x1, flag) = deserialize_with_flags(&buf[32..64])?;
+    let x = Fq2::new(x0, x1);
+
+    if flag == GnarkCompressedPointFlag::Infinity {
+        return Ok(AffineG2::one());
+    }
+
+    let (y, neg_y) = AffineG2::get_ys_from_x_unchecked(x)
+        .ok_or(SerializationError::InvalidData)
+        .map_err(Error::msg)?;
+
+    println!("x: {:?}", x);
+    println!("y: {:?}", y);
+    println!("neg_y: {:?}", neg_y);
+
+    match flag {
+        GnarkCompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::msg)?),
+        GnarkCompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::msg)?),
+        _ => Err(anyhow!(SerializationError::InvalidData)),
+    }
 }
 
 pub fn gnark_uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
@@ -159,19 +188,4 @@ pub(crate) fn load_groth16_verifying_key_from_bytes(buffer: &[u8]) -> Result<Gro
         },
         public_and_commitment_committed: vec![vec![0u32; 0]],
     })
-}
-
-pub(crate) fn g1_to_bytes(g1: &AffineG1) -> Result<Vec<u8>> {
-    let mut bytes = vec![];
-    let value_x = g1.x();
-    let value_y = g1.y();
-
-    let mut x_bytes = [0u8; 32];
-    let mut y_bytes = [0u8; 32];
-    value_x.to_big_endian(&mut x_bytes);
-    value_y.to_big_endian(&mut y_bytes);
-
-    bytes.extend_from_slice(&x_bytes);
-    bytes.extend_from_slice(&y_bytes);
-    Ok(bytes)
 }
