@@ -1,18 +1,12 @@
 use anyhow::{anyhow, Error, Result};
-use ark_ec::AffineRepr;
-use ark_ff::{BigInteger, PrimeField};
 use ark_serialize::SerializationError;
 use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
 use std::cmp::Ordering;
 use std::ops::Neg;
 
 use crate::{
-    constants::{
-        GnarkCompressedPointFlag, ERR_FAILED_TO_GET_X, ERR_FAILED_TO_GET_Y,
-        GNARK_COMPRESSED_INFINITY, GNARK_COMPRESSED_NEGATIVE, GNARK_COMPRESSED_POSTIVE, GNARK_MASK,
-    },
-    converter::{gnark_commpressed_x_to_ark_commpressed_x, is_zeroed},
-    groth16::{convert_fr_sub_to_ark, convert_g1_sub_to_ark, convert_g2_ark_to_sub},
+    constants::{GnarkCompressedPointFlag, GNARK_MASK},
+    converter::is_zeroed,
 };
 
 use super::{
@@ -21,77 +15,13 @@ use super::{
     PlonkProof,
 };
 
-// fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
-//     if buf.len() != 32 {
-//         return Err(anyhow!(SerializationError::InvalidData));
-//     };
-
-//     let m_data = buf[0] & GNARK_MASK;
-//     if m_data == GNARK_COMPRESSED_INFINITY {
-//         if !is_zeroed(buf[0] & !GNARK_MASK, &buf[1..32])? {
-//             return Err(anyhow!(SerializationError::InvalidData));
-//         }
-//         Ok(AffineG1::one())
-//     } else {
-//         let mut x_bytes: [u8; 32] = [0u8; 32];
-//         x_bytes.copy_from_slice(buf);
-//         x_bytes[0] &= !GNARK_MASK;
-
-//         let x = Fq::from_slice(&x_bytes.to_vec()).map_err(Error::msg)?;
-//         let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
-//             .ok_or(SerializationError::InvalidData)
-//             .map_err(Error::msg)?;
-
-//         let mut final_y = y;
-//         if y.cmp(&neg_y) == Ordering::Greater {
-//             if m_data == GNARK_COMPRESSED_POSTIVE {
-//                 final_y = y.neg();
-//             }
-//         } else {
-//             if m_data == GNARK_COMPRESSED_NEGATIVE {
-//                 final_y = y.neg();
-//             }
-//         }
-
-//         let p = AffineG1::new(x, final_y).map_err(Error::msg)?;
-
-//         Ok(p)
-//     }
-// }
-
-// fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
-//     use ark_serialize::CanonicalDeserialize;
-
-//     println!("cycle-tracker-start: gnark_compressed_x_to_g2_point");
-
-//     if buf.len() != 64 {
-//         println!("cycle-tracker-end: gnark_compressed_x_to_g2_point");
-//         return Err(anyhow!(SerializationError::InvalidData));
-//     };
-
-//     println!("cycle-tracker-start: gnark_commpressed_x_to_ark_commpressed_x");
-//     let bytes = gnark_commpressed_x_to_ark_commpressed_x(&buf.to_vec())?;
-//     println!("cycle-tracker-end: gnark_commpressed_x_to_ark_commpressed_x");
-
-//     println!("cycle-tracker-start: deserialize_compressed");
-//     let p = ark_bn254::G2Affine::deserialize_compressed::<&[u8]>(&bytes).map_err(Error::msg)?;
-//     println!("cycle-tracker-end: deserialize_compressed");
-
-//     println!("cycle-tracker-start: convert_g2_ark_to_sub");
-//     let p = convert_g2_ark_to_sub(p);
-//     println!("cycle-tracker-end: convert_g2_ark_to_sub");
-
-//     println!("cycle-tracker-end: gnark_compressed_x_to_g2_point");
-//     Ok(p)
-// }
-
 fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, GnarkCompressedPointFlag)> {
     if buf.len() != 32 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
 
     let m_data = buf[0] & GNARK_MASK;
-    if m_data == GNARK_COMPRESSED_INFINITY {
+    if m_data == GnarkCompressedPointFlag::Infinity.into() {
         if !is_zeroed(buf[0] & !GNARK_MASK, &buf[1..32])? {
             return Err(anyhow!(SerializationError::InvalidData));
         }
@@ -183,21 +113,13 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
     ]) as usize;
 
     let coset_shift = Fr::from_slice(&buffer[80..112]).map_err(|err| anyhow!("{err:?}"))?;
-
     let s0 = gnark_compressed_x_to_g1_point(&buffer[112..144])?;
-
     let s1 = gnark_compressed_x_to_g1_point(&buffer[144..176])?;
-
     let s2 = gnark_compressed_x_to_g1_point(&buffer[176..208])?;
-
     let ql = gnark_compressed_x_to_g1_point(&buffer[208..240])?;
-
     let qr = gnark_compressed_x_to_g1_point(&buffer[240..272])?;
-
     let qm = gnark_compressed_x_to_g1_point(&buffer[272..304])?;
-
     let qo = gnark_compressed_x_to_g1_point(&buffer[304..336])?;
-
     let qk = gnark_compressed_x_to_g1_point(&buffer[336..368])?;
 
     let num_qcp = u32::from_be_bytes([buffer[368], buffer[369], buffer[370], buffer[371]]);
@@ -211,9 +133,7 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
     }
 
     let g1 = gnark_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
-
     let g2_0 = gnark_compressed_x_to_g2_point(&buffer[offset + 32..offset + 96])?;
-
     let g2_1 = gnark_compressed_x_to_g2_point(&buffer[offset + 96..offset + 160])?;
 
     offset += 160 + 33788;

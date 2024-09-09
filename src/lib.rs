@@ -41,13 +41,8 @@ impl Verifier for PlonkVerifier {
     type Fr = bn::Fr;
 
     fn verify(proof: &[u8], vk: &[u8], public_inputs: &[Self::Fr]) -> bool {
-        println!("cycle-tracker-start: load_plonk_proof");
         let proof = load_plonk_proof_from_bytes(proof).unwrap();
-        println!("cycle-tracker-end: load_plonk_proof");
-
-        println!("cycle-tracker-start: load_plonk_vk");
         let vk = load_plonk_verifying_key_from_bytes(vk).unwrap();
-        println!("cycle-tracker-end: load_plonk_vk");
 
         match verify_plonk(&vk, &proof, public_inputs) {
             Ok(result) => result,
