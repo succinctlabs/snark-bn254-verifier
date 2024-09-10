@@ -53,10 +53,8 @@ impl Verifier for PlonkVerifier {
 
 #[cfg(test)]
 mod tfms_tests {
-    use ark_bn254::G2Affine;
-    use ark_ec::AffineRepr;
     use ark_ff::BigInteger;
-    use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, Group, G1, G2};
+    use bn::{AffineG1, AffineG2, Fq, Fr, Group, G1, G2};
     use groth16::{
         convert_fr_sub_to_ark, convert_g1_ark_to_sub, convert_g1_sub_to_ark, convert_g2_ark_to_sub,
         convert_g2_sub_to_ark,
@@ -129,45 +127,6 @@ mod tfms_tests {
             }
         }
     }
-    // {
-    //     for _ in 0..10 {
-    //         // Generate a random x coordinate in Fq2
-    //         let x = Fq2::new(Fq::random(&mut rng), Fq::random(&mut rng));
-
-    //         // Compute y^2 = x^3 + b where b = Fq2::new(3, 3)
-    //         let x_cubed = x * x * x;
-    //         let b = Fq2::new(
-    //             Fq::from_str(
-    //                 "22799221013541087096367587346834441365989518998853065993049079013451698317998",
-    //             )
-    //             .unwrap(),
-    //             Fq::from_str(
-    //                 "403964309794472056394727851523360573920961648133464280908710223190906961620",
-    //             )
-    //             .unwrap(),
-    //         );
-
-    //         let y_squared = x_cubed + b;
-
-    //         // Compute y (if it exists)
-    //         if let Some(y) = y_squared.sqrt() {
-    //             let p = AffineG2::new(x, y).expect("Failed to create AffineG2");
-    //             let ark_p = convert_g2_sub_to_ark(p);
-
-    //             // Verify that the conversion is correct
-    //             assert_eq!(p.x().real(), Fq::from_str(&ark_p.x.c0.to_string()).unwrap());
-    //             assert_eq!(
-    //                 p.x().imaginary(),
-    //                 Fq::from_str(&ark_p.x.c1.to_string()).unwrap()
-    //             );
-    //             assert_eq!(p.y().real(), Fq::from_str(&ark_p.y.c0.to_string()).unwrap());
-    //             assert_eq!(
-    //                 p.y().imaginary(),
-    //                 Fq::from_str(&ark_p.y.c1.to_string()).unwrap()
-    //             );
-    //         }
-    //     }
-    // }
 
     #[test]
     fn test_affine_g2_one() {

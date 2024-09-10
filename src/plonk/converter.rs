@@ -102,9 +102,7 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
     let size = u64::from_be_bytes([
         buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7],
     ]) as usize;
-
     let size_inv = Fr::from_slice(&buffer[8..40]).map_err(Error::msg)?;
-
     let generator = Fr::from_slice(&buffer[40..72]).map_err(|err| anyhow!("{err:?}"))?;
 
     let nb_public_variables = u64::from_be_bytes([
@@ -121,11 +119,10 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
     let qm = gnark_compressed_x_to_g1_point(&buffer[272..304])?;
     let qo = gnark_compressed_x_to_g1_point(&buffer[304..336])?;
     let qk = gnark_compressed_x_to_g1_point(&buffer[336..368])?;
-
     let num_qcp = u32::from_be_bytes([buffer[368], buffer[369], buffer[370], buffer[371]]);
-
     let mut qcp = Vec::new();
     let mut offset = 372;
+
     for _ in 0..num_qcp {
         let point = gnark_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
         qcp.push(point);
