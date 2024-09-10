@@ -66,9 +66,6 @@ fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
         return Err(anyhow!(SerializationError::InvalidData));
     };
 
-    let bytes = gnark_commpressed_x_to_ark_commpressed_x(&buf.to_vec())?;
-    let point = AffineG2::deserialize_compressed(&bytes).map_err(Error::msg)?;
-
     let (x0, _) = deserialize_with_flags(&buf[..32])?;
     let (x1, flag) = deserialize_with_flags(&buf[32..64])?;
     let x = Fq2::new(x0, x1);
