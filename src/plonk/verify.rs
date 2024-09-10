@@ -241,11 +241,7 @@ pub fn verify_plonk(
     scalars.push(zeta_n_plus_two_zh);
     scalars.push(zeta_n_plus_two_square_zh);
 
-    let linearized_polynomial_digest = G1::msm(
-        &points.iter().map(|&p| p.into()).collect::<Vec<_>>(),
-        &scalars,
-    )
-    .into();
+    let linearized_polynomial_digest = AffineG1::msm(&points, &scalars);
 
     let mut digests_to_fold = vec![AffineG1::default(); vk.qcp.len() + 6];
     digests_to_fold[6..].copy_from_slice(&vk.qcp);
