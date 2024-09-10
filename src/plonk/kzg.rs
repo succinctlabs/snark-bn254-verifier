@@ -73,7 +73,7 @@ fn derive_gamma(
     Ok(x)
 }
 
-fn fold(di: Vec<Digest>, fai: Vec<Fr>, ci: Vec<Fr>) -> Result<(G1, Fr)> {
+fn fold(di: Vec<Digest>, fai: Vec<Fr>, ci: Vec<Fr>) -> Result<(AffineG1, Fr)> {
     let nb_digests = di.len();
     let mut folded_evaluations = Fr::zero();
 
@@ -81,9 +81,9 @@ fn fold(di: Vec<Digest>, fai: Vec<Fr>, ci: Vec<Fr>) -> Result<(G1, Fr)> {
         folded_evaluations += fai[i] * ci[i];
     }
 
-    let folded_digests = G1::msm(&di.iter().map(|&p| p.into()).collect::<Vec<_>>(), &ci);
+    let folded_digests = AffineG1::msm(&di, &ci);
 
-    Ok((folded_digests.into(), folded_evaluations))
+    Ok((folded_digests, folded_evaluations))
 }
 
 pub(crate) fn fold_proof(
@@ -91,7 +91,7 @@ pub(crate) fn fold_proof(
     batch_opening_proof: &BatchOpeningProof,
     point: &Fr,
     data_transcript: Option<Vec<u8>>,
-) -> Result<(OpeningProof, G1)> {
+) -> Result<(OpeningProof, AffineG1)> {
     let nb_digests = digests.len();
 
     if nb_digests != batch_opening_proof.claimed_values.len() {
@@ -161,34 +161,28 @@ pub(crate) fn batch_verify_multi_points(
         quotients.push(proofs[i].h);
     }
 
-    let mut folded_quotients = G1::msm(
-        &quotients.iter().map(|&p| p.into()).collect::<Vec<_>>(),
-        &random_numbers,
-    );
-
+    let mut folded_quotients = AffineG1::msm(&quotients, &random_numbers);
     let mut evals = Vec::with_capacity(nb_digests);
+
     for i in 0..nb_digests {
         evals.push(proofs[i].claimed_value);
     }
 
     let (mut folded_digests, folded_evals) = fold(digests, evals, random_numbers.clone())?;
     let folded_evals_commit = vk.g1 * folded_evals;
-    folded_digests = folded_digests - folded_evals_commit;
+    folded_digests = folded_digests - folded_evals_commit.into();
 
     for i in 0..random_numbers.len() {
         random_numbers[i] = random_numbers[i] * points[i];
     }
-    let folded_points_quotients = G1::msm(
-        &quotients.iter().map(|&p| p.into()).collect::<Vec<_>>(),
-        &random_numbers,
-    );
+    let folded_points_quotients = AffineG1::msm(&quotients, &random_numbers);
 
     folded_digests = folded_digests + folded_points_quotients;
     folded_quotients = -folded_quotients;
 
     let pairing_result = pairing_batch(&[
-        (folded_digests, vk.g2[0].into()),
-        (folded_quotients, vk.g2[1].into()),
+        (folded_digests.into(), vk.g2[0]),
+        (folded_quotients.into(), vk.g2[1]),
     ]);
 
     if !pairing_result.is_one() {
