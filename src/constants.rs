@@ -68,5 +68,3 @@ impl core::fmt::Display for SerializationError {
         }
     }
 }
-
-impl std::error::Error for SerializationError {}

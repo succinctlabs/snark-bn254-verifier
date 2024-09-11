@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use anyhow::Result;
 use bn::{pairing, pairing_batch, AffineG1, AffineG2, Fr, Gt, G1, G2};
 

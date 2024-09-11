@@ -1,3 +1,7 @@
+#![no_std]
+
+extern crate alloc;
+
 use groth16::{
     load_groth16_proof_from_bytes, load_groth16_verifying_key_from_bytes, verify_groth16,
 };
@@ -27,10 +31,7 @@ impl Verifier for Groth16Verifier {
 
         match verify_groth16(&vk, &proof, public_inputs) {
             Ok(result) => result,
-            Err(e) => {
-                println!("Error: {:?}", e);
-                false
-            }
+            Err(e) => false,
         }
     }
 }
