@@ -1,6 +1,8 @@
+use alloc::vec::Vec;
+use core::cmp::Ordering;
+
 use anyhow::{anyhow, Error, Result};
 use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
-use std::cmp::Ordering;
 
 use crate::{
     constants::{GnarkCompressedPointFlag, SerializationError, GNARK_MASK},
@@ -29,8 +31,7 @@ fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, GnarkCompressedPointFlag)> 
         x_bytes.copy_from_slice(buf);
         x_bytes[0] &= !GNARK_MASK;
 
-        let x = Fq::from_be_bytes_mod_order(&x_bytes.to_vec())
-            .expect("Failed to convert x bytes to Fq");
+        let x = Fq::from_be_bytes_mod_order(&x_bytes).expect("Failed to convert x bytes to Fq");
 
         Ok((x, GnarkCompressedPointFlag::from(m_data)))
     }
@@ -89,8 +90,8 @@ pub fn gnark_uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
 
     let (x_bytes, y_bytes) = buf.split_at(32);
 
-    let x = Fq::from_slice(&x_bytes.to_vec()).map_err(Error::msg)?;
-    let y = Fq::from_slice(&y_bytes.to_vec()).map_err(Error::msg)?;
+    let x = Fq::from_slice(x_bytes).map_err(Error::msg)?;
+    let y = Fq::from_slice(y_bytes).map_err(Error::msg)?;
     let p = AffineG1::new(x, y).map_err(Error::msg)?;
 
     Ok(p)
@@ -253,7 +254,7 @@ pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
 }
 
 pub(crate) fn g1_to_bytes(g1: &AffineG1) -> Result<Vec<u8>> {
-    let mut bytes: [u8; 64] = unsafe { std::mem::transmute(*g1) };
+    let mut bytes: [u8; 64] = unsafe { core::mem::transmute(*g1) };
     bytes[..32].reverse();
     bytes[32..].reverse();
     Ok(bytes.to_vec())

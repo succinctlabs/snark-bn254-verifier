@@ -1,6 +1,8 @@
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use anyhow::Result;
+use core::hash::Hasher;
 use sha2::Digest;
-use std::hash::Hasher;
 
 use crate::constants::{ERR_DST_TOO_LARGE, ERR_ELL_TOO_LARGE};
 
@@ -72,12 +74,12 @@ impl WrappedHashToField {
         h.update(&[size_domain as u8]);
         let mut b1 = h.finalize_reset();
 
-        let mut res = vec![0u8; len];
+        let mut res = alloc::vec![0u8; len];
         res[..32].copy_from_slice(&b1);
 
         for i in 2..=ell {
             h.reset();
-            let mut strxor = vec![0u8; 32];
+            let mut strxor = alloc::vec![0u8; 32];
             for (j, (b0_byte, b1_byte)) in b0.iter().zip(b1.iter()).enumerate() {
                 strxor[j] = b0_byte ^ b1_byte;
             }
@@ -88,7 +90,7 @@ impl WrappedHashToField {
             b1 = h.finalize_reset();
 
             let start = 32 * (i - 1);
-            let end = std::cmp::min(start + 32, res.len());
+            let end = core::cmp::min(start + 32, res.len());
             res[start..end].copy_from_slice(&b1[..end - start]);
         }
 

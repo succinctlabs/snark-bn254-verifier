@@ -1,3 +1,4 @@
+use alloc::{string::ToString, vec::Vec};
 use anyhow::{anyhow, Result};
 use bn::{pairing_batch, AffineG1, Fr, G1, G2};
 use rand::rngs::OsRng;
@@ -105,7 +106,7 @@ pub(crate) fn fold_proof(
         data_transcript,
     )?;
 
-    let mut gammai = vec![Fr::zero(); nb_digests];
+    let mut gammai = alloc::vec![Fr::zero(); nb_digests];
     gammai[0] = Fr::one();
 
     if nb_digests > 1 {

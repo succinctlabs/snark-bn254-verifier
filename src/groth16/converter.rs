@@ -1,6 +1,7 @@
+use alloc::vec::Vec;
 use anyhow::{anyhow, Error, Result};
 use bn::{AffineG1, AffineG2, Fq, Fq2};
-use std::{
+use core::{
     cmp::{Ord, Ordering},
     ops::Neg,
 };
@@ -173,6 +174,6 @@ pub(crate) fn load_groth16_verifying_key_from_bytes(buffer: &[u8]) -> Result<Gro
             g: commitment_key_g,
             g_root_sigma_neg: commitment_key_g_root_sigma_neg,
         },
-        public_and_commitment_committed: vec![vec![0u32; 0]],
+        public_and_commitment_committed: alloc::vec![alloc::vec![0u32; 0]],
     })
 }

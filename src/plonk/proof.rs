@@ -1,4 +1,5 @@
 use super::kzg::{BatchOpeningProof, Digest, OpeningProof};
+use alloc::vec::Vec;
 
 #[derive(Debug)]
 pub(crate) struct PlonkProof {

@@ -1,6 +1,8 @@
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use alloc::vec::Vec;
 use anyhow::{anyhow, Result};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 
 use crate::constants::{
     ERR_CHALLENGE_ALREADY_COMPUTED, ERR_CHALLENGE_NOT_FOUND, ERR_PREVIOUS_CHALLENGE_NOT_COMPUTED,
@@ -18,7 +20,7 @@ pub(crate) struct Challenge {
 pub(crate) struct Transcript {
     pub(crate) h: Sha256,
 
-    pub(crate) challenges: HashMap<String, Challenge>,
+    pub(crate) challenges: BTreeMap<String, Challenge>,
     previous_challenge: Option<Challenge>,
 }
 
@@ -27,7 +29,7 @@ impl Transcript {
         let h = Sha256::new();
 
         if let Some(challenges_id) = challenges_id {
-            let mut challenges = HashMap::new();
+            let mut challenges = BTreeMap::new();
             for (position, id) in challenges_id.iter().enumerate() {
                 challenges.insert(
                     id.clone(),
@@ -48,14 +50,17 @@ impl Transcript {
         } else {
             Ok(Transcript {
                 h,
-                challenges: HashMap::new(),
+                challenges: BTreeMap::new(),
                 previous_challenge: None,
             })
         }
     }
 
     pub(crate) fn bind(&mut self, id: &str, binding: &[u8]) -> Result<()> {
-        let current_challenge = self.challenges.get_mut(id).expect(ERR_CHALLENGE_NOT_FOUND);
+        let current_challenge = self
+            .challenges
+            .get_mut(id)
+            .ok_or_else(|| anyhow!(ERR_CHALLENGE_NOT_FOUND))?;
         if current_challenge.is_computed {
             return Err(anyhow!(ERR_CHALLENGE_ALREADY_COMPUTED));
         }
@@ -66,12 +71,10 @@ impl Transcript {
     }
 
     pub(crate) fn compute_challenge(&mut self, challenge_id: &str) -> Result<Vec<u8>> {
-        let challenge = match self.challenges.get_mut(challenge_id) {
-            Some(challenge) => challenge,
-            None => {
-                return Err(anyhow!(ERR_CHALLENGE_NOT_FOUND));
-            }
-        };
+        let challenge = self
+            .challenges
+            .get_mut(challenge_id)
+            .ok_or_else(|| anyhow!(ERR_CHALLENGE_NOT_FOUND))?;
 
         if challenge.is_computed {
             return Ok(challenge.value.clone());
@@ -99,7 +102,7 @@ impl Transcript {
 
         let res = self.h.finalize_reset();
 
-        challenge.value = res.to_vec().clone();
+        challenge.value = res.to_vec();
         challenge.is_computed = true;
 
         // Update the previous challenge reference
