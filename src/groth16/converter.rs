@@ -10,10 +10,7 @@ use crate::{
         GnarkCompressedPointFlag, SerializationError, GNARK_COMPRESSED_INFINITY, GNARK_MASK,
     },
     converter::is_zeroed,
-};
-
-use groth16_verifier::{
-    Groth16G1, Groth16G2, Groth16Proof, Groth16VerifyingKey, PedersenVerifyingKey,
+    groth16::{Groth16G1, Groth16G2, Groth16Proof, Groth16VerifyingKey, PedersenVerifyingKey},
 };
 
 fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, GnarkCompressedPointFlag)> {
