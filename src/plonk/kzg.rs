@@ -1,12 +1,9 @@
 use alloc::{string::ToString, vec::Vec};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use bn::{pairing_batch, AffineG1, Fr, G1, G2};
 use rand::rngs::OsRng;
 
-use crate::{
-    constants::{ERR_INVALID_NUMBER_OF_DIGESTS, ERR_PAIRING_CHECK_FAILED, GAMMA},
-    transcript::Transcript,
-};
+use crate::{constants::GAMMA, error::Error, transcript::Transcript};
 
 use super::{converter::g1_to_bytes, element::PlonkFr};
 
@@ -96,7 +93,7 @@ pub(crate) fn fold_proof(
     let nb_digests = digests.len();
 
     if nb_digests != batch_opening_proof.claimed_values.len() {
-        return Err(anyhow!(ERR_INVALID_NUMBER_OF_DIGESTS));
+        return Err(Error::InvalidNumberOfDigests.into());
     }
 
     let gamma = derive_gamma(
@@ -139,11 +136,11 @@ pub(crate) fn batch_verify_multi_points(
     let nb_points = points.len();
 
     if nb_digests != nb_proofs {
-        return Err(anyhow!(ERR_INVALID_NUMBER_OF_DIGESTS));
+        return Err(Error::InvalidNumberOfDigests.into());
     }
 
     if nb_digests != nb_points {
-        return Err(anyhow!(ERR_INVALID_NUMBER_OF_DIGESTS));
+        return Err(Error::InvalidNumberOfDigests.into());
     }
 
     if nb_digests == 1 {
@@ -187,7 +184,7 @@ pub(crate) fn batch_verify_multi_points(
     ]);
 
     if !pairing_result.is_one() {
-        return Err(anyhow!(ERR_PAIRING_CHECK_FAILED));
+        return Err(Error::PairingCheckFailed.into());
     }
 
     Ok(())

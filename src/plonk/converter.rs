@@ -5,7 +5,7 @@ use anyhow::{anyhow, Error, Result};
 use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
 
 use crate::{
-    constants::{GnarkCompressedPointFlag, SerializationError, GNARK_MASK},
+    constants::{CompressedPointFlag, SerializationError, MASK},
     converter::is_zeroed,
 };
 
@@ -15,29 +15,29 @@ use super::{
     PlonkProof,
 };
 
-fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, GnarkCompressedPointFlag)> {
+fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, CompressedPointFlag)> {
     if buf.len() != 32 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
 
-    let m_data = buf[0] & GNARK_MASK;
-    if m_data == GnarkCompressedPointFlag::Infinity.into() {
-        if !is_zeroed(buf[0] & !GNARK_MASK, &buf[1..32])? {
+    let m_data = buf[0] & MASK;
+    if m_data == CompressedPointFlag::Infinity.into() {
+        if !is_zeroed(buf[0] & !MASK, &buf[1..32])? {
             return Err(anyhow!(SerializationError::InvalidData));
         }
-        Ok((Fq::zero(), GnarkCompressedPointFlag::Infinity))
+        Ok((Fq::zero(), CompressedPointFlag::Infinity))
     } else {
         let mut x_bytes: [u8; 32] = [0u8; 32];
         x_bytes.copy_from_slice(buf);
-        x_bytes[0] &= !GNARK_MASK;
+        x_bytes[0] &= !MASK;
 
         let x = Fq::from_be_bytes_mod_order(&x_bytes).expect("Failed to convert x bytes to Fq");
 
-        Ok((x, GnarkCompressedPointFlag::from(m_data)))
+        Ok((x, CompressedPointFlag::from(m_data)))
     }
 }
 
-fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+fn compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
     let (x, m_data) = deserialize_with_flags(buf)?;
     let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
         .ok_or(SerializationError::InvalidData)
@@ -45,11 +45,11 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
 
     let mut final_y = y;
     if y.cmp(&neg_y) == Ordering::Greater {
-        if m_data == GnarkCompressedPointFlag::Positive {
+        if m_data == CompressedPointFlag::Positive {
             final_y = -y;
         }
     } else {
-        if m_data == GnarkCompressedPointFlag::Negative {
+        if m_data == CompressedPointFlag::Negative {
             final_y = -y;
         }
     }
@@ -57,7 +57,7 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
     Ok(AffineG1::new(x, final_y).map_err(Error::msg)?)
 }
 
-fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
+fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
     if buf.len() != 64 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
@@ -68,7 +68,7 @@ fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
         .expect("Failed to deserialize x0");
     let x = Fq2::new(x0, x1);
 
-    if flag == GnarkCompressedPointFlag::Infinity {
+    if flag == CompressedPointFlag::Infinity {
         return Ok(AffineG2::one());
     }
 
@@ -77,13 +77,13 @@ fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
         .map_err(Error::msg)?;
 
     match flag {
-        GnarkCompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::msg)?),
-        GnarkCompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::msg)?),
+        CompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::msg)?),
+        CompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::msg)?),
         _ => Err(anyhow!(SerializationError::InvalidData)),
     }
 }
 
-pub fn gnark_uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+pub fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
     if buf.len() != 64 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
@@ -110,27 +110,27 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
     ]) as usize;
 
     let coset_shift = Fr::from_slice(&buffer[80..112]).map_err(|err| anyhow!("{err:?}"))?;
-    let s0 = gnark_compressed_x_to_g1_point(&buffer[112..144])?;
-    let s1 = gnark_compressed_x_to_g1_point(&buffer[144..176])?;
-    let s2 = gnark_compressed_x_to_g1_point(&buffer[176..208])?;
-    let ql = gnark_compressed_x_to_g1_point(&buffer[208..240])?;
-    let qr = gnark_compressed_x_to_g1_point(&buffer[240..272])?;
-    let qm = gnark_compressed_x_to_g1_point(&buffer[272..304])?;
-    let qo = gnark_compressed_x_to_g1_point(&buffer[304..336])?;
-    let qk = gnark_compressed_x_to_g1_point(&buffer[336..368])?;
+    let s0 = compressed_x_to_g1_point(&buffer[112..144])?;
+    let s1 = compressed_x_to_g1_point(&buffer[144..176])?;
+    let s2 = compressed_x_to_g1_point(&buffer[176..208])?;
+    let ql = compressed_x_to_g1_point(&buffer[208..240])?;
+    let qr = compressed_x_to_g1_point(&buffer[240..272])?;
+    let qm = compressed_x_to_g1_point(&buffer[272..304])?;
+    let qo = compressed_x_to_g1_point(&buffer[304..336])?;
+    let qk = compressed_x_to_g1_point(&buffer[336..368])?;
     let num_qcp = u32::from_be_bytes([buffer[368], buffer[369], buffer[370], buffer[371]]);
     let mut qcp = Vec::new();
     let mut offset = 372;
 
     for _ in 0..num_qcp {
-        let point = gnark_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
+        let point = compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
         qcp.push(point);
         offset += 32;
     }
 
-    let g1 = gnark_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
-    let g2_0 = gnark_compressed_x_to_g2_point(&buffer[offset + 32..offset + 96])?;
-    let g2_1 = gnark_compressed_x_to_g2_point(&buffer[offset + 96..offset + 160])?;
+    let g1 = compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
+    let g2_0 = compressed_x_to_g2_point(&buffer[offset + 32..offset + 96])?;
+    let g2_1 = compressed_x_to_g2_point(&buffer[offset + 96..offset + 160])?;
 
     offset += 160 + 33788;
 
@@ -196,14 +196,14 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
 }
 
 pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
-    let lro0 = gnark_uncompressed_bytes_to_g1_point(&buffer[..64])?;
-    let lro1 = gnark_uncompressed_bytes_to_g1_point(&buffer[64..128])?;
-    let lro2 = gnark_uncompressed_bytes_to_g1_point(&buffer[128..192])?;
-    let z = gnark_uncompressed_bytes_to_g1_point(&buffer[192..256])?;
-    let h0 = gnark_uncompressed_bytes_to_g1_point(&buffer[256..320])?;
-    let h1 = gnark_uncompressed_bytes_to_g1_point(&buffer[320..384])?;
-    let h2 = gnark_uncompressed_bytes_to_g1_point(&buffer[384..448])?;
-    let batched_proof_h = gnark_uncompressed_bytes_to_g1_point(&buffer[448..512])?;
+    let lro0 = uncompressed_bytes_to_g1_point(&buffer[..64])?;
+    let lro1 = uncompressed_bytes_to_g1_point(&buffer[64..128])?;
+    let lro2 = uncompressed_bytes_to_g1_point(&buffer[128..192])?;
+    let z = uncompressed_bytes_to_g1_point(&buffer[192..256])?;
+    let h0 = uncompressed_bytes_to_g1_point(&buffer[256..320])?;
+    let h1 = uncompressed_bytes_to_g1_point(&buffer[320..384])?;
+    let h2 = uncompressed_bytes_to_g1_point(&buffer[384..448])?;
+    let batched_proof_h = uncompressed_bytes_to_g1_point(&buffer[448..512])?;
 
     let num_claimed_values =
         u32::from_be_bytes([buffer[512], buffer[513], buffer[514], buffer[515]]) as usize;
@@ -216,7 +216,7 @@ pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
         offset += 32;
     }
 
-    let z_shifted_opening_h = gnark_uncompressed_bytes_to_g1_point(&buffer[offset..offset + 64])?;
+    let z_shifted_opening_h = uncompressed_bytes_to_g1_point(&buffer[offset..offset + 64])?;
     let z_shifted_opening_value =
         Fr::from_slice(&buffer[offset + 64..offset + 96]).map_err(Error::msg)?;
 
@@ -230,7 +230,7 @@ pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
     let mut bsb22_commitments = Vec::new();
     offset += 100;
     for _ in 0..num_bsb22_commitments {
-        let commitment = gnark_uncompressed_bytes_to_g1_point(&buffer[offset..offset + 64])?;
+        let commitment = uncompressed_bytes_to_g1_point(&buffer[offset..offset + 64])?;
         bsb22_commitments.push(commitment);
         offset += 64;
     }

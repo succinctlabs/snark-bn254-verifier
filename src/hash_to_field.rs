@@ -1,10 +1,8 @@
-use alloc::string::ToString;
-use alloc::vec::Vec;
 use anyhow::Result;
 use core::hash::Hasher;
 use sha2::Digest;
 
-use crate::constants::{ERR_DST_TOO_LARGE, ERR_ELL_TOO_LARGE};
+use crate::error::Error;
 
 #[allow(dead_code)]
 pub(crate) struct WrappedHashToField {
@@ -49,10 +47,10 @@ impl WrappedHashToField {
         let ell = (len + 32 - 1) / 32;
 
         if ell > 255 {
-            Err(anyhow::anyhow!(ERR_ELL_TOO_LARGE))?;
+            Err(Error::EllTooLarge)?;
         }
         if dst.len() > 255 {
-            Err(anyhow::anyhow!(ERR_DST_TOO_LARGE))?;
+            Err(Error::DSTTooLarge)?;
         }
 
         let size_domain = dst.len();
@@ -74,12 +72,12 @@ impl WrappedHashToField {
         h.update(&[size_domain as u8]);
         let mut b1 = h.finalize_reset();
 
-        let mut res = alloc::vec![0u8; len];
+        let mut res = vec![0u8; len];
         res[..32].copy_from_slice(&b1);
 
         for i in 2..=ell {
             h.reset();
-            let mut strxor = alloc::vec![0u8; 32];
+            let mut strxor = vec![0u8; 32];
             for (j, (b0_byte, b1_byte)) in b0.iter().zip(b1.iter()).enumerate() {
                 strxor[j] = b0_byte ^ b1_byte;
             }
