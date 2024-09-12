@@ -1,12 +1,8 @@
-use alloc::collections::BTreeMap;
-use alloc::string::String;
-use alloc::vec::Vec;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
-use crate::constants::{
-    ERR_CHALLENGE_ALREADY_COMPUTED, ERR_CHALLENGE_NOT_FOUND, ERR_PREVIOUS_CHALLENGE_NOT_COMPUTED,
-};
+use crate::error::Error;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Challenge {
@@ -20,7 +16,7 @@ pub(crate) struct Challenge {
 pub(crate) struct Transcript {
     pub(crate) h: Sha256,
 
-    pub(crate) challenges: BTreeMap<String, Challenge>,
+    pub(crate) challenges: HashMap<String, Challenge>,
     previous_challenge: Option<Challenge>,
 }
 
@@ -29,7 +25,7 @@ impl Transcript {
         let h = Sha256::new();
 
         if let Some(challenges_id) = challenges_id {
-            let mut challenges = BTreeMap::new();
+            let mut challenges = HashMap::new();
             for (position, id) in challenges_id.iter().enumerate() {
                 challenges.insert(
                     id.clone(),
@@ -50,7 +46,7 @@ impl Transcript {
         } else {
             Ok(Transcript {
                 h,
-                challenges: BTreeMap::new(),
+                challenges: HashMap::new(),
                 previous_challenge: None,
             })
         }
@@ -60,9 +56,9 @@ impl Transcript {
         let current_challenge = self
             .challenges
             .get_mut(id)
-            .ok_or_else(|| anyhow!(ERR_CHALLENGE_NOT_FOUND))?;
+            .ok_or(Error::ChallengeNotFound)?;
         if current_challenge.is_computed {
-            return Err(anyhow!(ERR_CHALLENGE_ALREADY_COMPUTED));
+            return Err(Error::ChallengeAlreadyComputed.into());
         }
 
         current_challenge.bindings.push(binding.to_vec());
@@ -74,7 +70,7 @@ impl Transcript {
         let challenge = self
             .challenges
             .get_mut(challenge_id)
-            .ok_or_else(|| anyhow!(ERR_CHALLENGE_NOT_FOUND))?;
+            .ok_or(Error::ChallengeNotFound)?;
 
         if challenge.is_computed {
             return Ok(challenge.value.clone());
@@ -88,11 +84,11 @@ impl Transcript {
         if challenge.position != 0 {
             if let Some(previous_challenge) = &self.previous_challenge {
                 if previous_challenge.position != challenge.position - 1 {
-                    return Err(anyhow!(ERR_PREVIOUS_CHALLENGE_NOT_COMPUTED));
+                    return Err(Error::PreviousChallengeNotComputed.into());
                 }
                 self.h.update(&previous_challenge.value)
             } else {
-                return Err(anyhow!(ERR_PREVIOUS_CHALLENGE_NOT_COMPUTED));
+                return Err(Error::PreviousChallengeNotComputed.into());
             }
         }
 

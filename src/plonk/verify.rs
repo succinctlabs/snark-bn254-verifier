@@ -1,13 +1,11 @@
 use alloc::{string::ToString, vec::Vec};
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use bn::{arith::U256, AffineG1, Fr};
 use core::hash::Hasher;
 
 use crate::{
-    constants::{
-        ALPHA, BETA, ERR_BSB22_COMMITMENT_MISMATCH, ERR_INVALID_WITNESS, ERR_INVERSE_NOT_FOUND,
-        ERR_OPENING_POLY_MISMATCH, GAMMA, ZETA,
-    },
+    constants::{ALPHA, BETA, GAMMA, ZETA},
+    error::Error,
     transcript::Transcript,
 };
 
@@ -41,11 +39,11 @@ pub fn verify_plonk(
     public_inputs: &[Fr],
 ) -> Result<bool> {
     if proof.bsb22_commitments.len() != vk.qcp.len() {
-        return Err(anyhow::anyhow!(ERR_BSB22_COMMITMENT_MISMATCH));
+        return Err(Error::Bsb22CommitmentMismatch.into());
     }
 
     if public_inputs.len() != vk.nb_public_variables {
-        return Err(anyhow::anyhow!(ERR_INVALID_WITNESS));
+        return Err(Error::InvalidWitness.into());
     }
 
     let mut fs = Transcript::new(Some(
@@ -84,7 +82,9 @@ pub fn verify_plonk(
     let n = Fr::new(n).ok_or_else(|| anyhow!("Beyond the modulus"))?;
     let zeta_power_n = zeta.pow(n);
     let zh_zeta = zeta_power_n - one;
-    let mut lagrange_one = (zeta - one).inverse().expect(ERR_INVERSE_NOT_FOUND);
+    let mut lagrange_one = (zeta - one)
+        .inverse()
+        .expect(&Error::InverseNotFound.to_string());
     lagrange_one *= zh_zeta;
     lagrange_one *= vk.size_inv;
 
@@ -119,11 +119,12 @@ pub fn verify_plonk(
         hash_to_field.write(&g1_to_bytes(&proof.bsb22_commitments[i])?);
         let hash_bts = hash_to_field.sum()?;
         hash_to_field.reset();
-        let hashed_cmt = Fr::from_bytes_be_mod_order(&hash_bts).map_err(Error::msg)?;
+        let hashed_cmt = Fr::from_bytes_be_mod_order(&hash_bts)
+            .map_err(|_| Error::FailedToGetFrFromRandomBytes)?;
 
         let exponent =
             U256::from((vk.nb_public_variables + vk.commitment_constraint_indexes[i]) as u64);
-        let exponent = Fr::new(exponent).ok_or_else(|| anyhow!("Beyond the modulus"))?;
+        let exponent = Fr::new(exponent).ok_or_else(|| Error::BeyondTheModulus)?;
         let w_pow_i = vk.generator.pow(exponent);
         let mut den = zeta;
         den -= w_pow_i;
@@ -180,7 +181,7 @@ pub fn verify_plonk(
     let opening_lin_pol = proof.batched_proof.claimed_values[0];
 
     if const_lin != opening_lin_pol {
-        return Err(anyhow::anyhow!(ERR_OPENING_POLY_MISMATCH));
+        return Err(Error::OpeningPolyMismatch.into());
     }
 
     let _s1 = Fr::zero();
