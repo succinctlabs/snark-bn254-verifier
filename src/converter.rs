@@ -4,38 +4,39 @@ use anyhow::{anyhow, Result};
 use core::fmt::Write;
 
 use crate::constants::{
-    ARK_COMPRESSED_INFINITY, ARK_COMPRESSED_NEGATIVE, ARK_COMPRESSED_POSTIVE, ARK_MASK,
-    ERR_INVALID_GNARK_X_LENGTH, ERR_UNEXPECTED_GNARK_FLAG, GNARK_COMPRESSED_INFINITY,
-    GNARK_COMPRESSED_NEGATIVE, GNARK_COMPRESSED_POSTIVE, GNARK_MASK,
+    COMPRESSED_INFINITY, COMPRESSED_NEGATIVE, COMPRESSED_POSTIVE, MASK,
+    SUBSTRATE_COMPRESSED_INFINITY, SUBSTRATE_COMPRESSED_NEGATIVE, SUBSTRATE_COMPRESSED_POSTIVE,
+    SUBSTRATE_MASK,
 };
+use crate::error::Error;
 
-pub fn gnark_flag_to_ark_flag(msb: u8) -> Result<u8> {
-    let gnark_flag = msb & GNARK_MASK;
+pub fn to_bn_flag(msb: u8) -> Result<u8> {
+    let flag = msb & MASK;
 
-    let ark_flag = match gnark_flag {
-        GNARK_COMPRESSED_POSTIVE => ARK_COMPRESSED_POSTIVE,
-        GNARK_COMPRESSED_NEGATIVE => ARK_COMPRESSED_NEGATIVE,
-        GNARK_COMPRESSED_INFINITY => ARK_COMPRESSED_INFINITY,
+    let bn_flag = match flag {
+        COMPRESSED_POSTIVE => SUBSTRATE_COMPRESSED_POSTIVE,
+        COMPRESSED_NEGATIVE => SUBSTRATE_COMPRESSED_NEGATIVE,
+        COMPRESSED_INFINITY => SUBSTRATE_COMPRESSED_INFINITY,
         _ => {
             let mut err_msg = String::new();
-            write!(err_msg, "{}: {}", ERR_UNEXPECTED_GNARK_FLAG, gnark_flag).unwrap();
+            write!(err_msg, "{}: {}", Error::UnexpectedFlag, flag).unwrap();
             return Err(anyhow!(err_msg));
         }
     };
 
-    Ok(msb & !ARK_MASK | ark_flag)
+    Ok(msb & !SUBSTRATE_MASK | bn_flag)
 }
 
-/// Convert big-endian gnark compressed x bytes to litte-endian ark compressed x for g1 and g2 point
-pub fn gnark_commpressed_x_to_ark_commpressed_x(x: &[u8]) -> Result<Vec<u8>> {
+/// Convert big-endian compressed x bytes to litte-endian compressed x for g1 and g2 point
+pub fn to_compressed_x(x: &[u8]) -> Result<Vec<u8>> {
     if x.len() != 32 && x.len() != 64 {
         let mut err_msg = String::new();
-        write!(err_msg, "{}: {}", ERR_INVALID_GNARK_X_LENGTH, x.len()).unwrap();
+        write!(err_msg, "{}: {}", Error::InvalidXLength, x.len()).unwrap();
         return Err(anyhow!(err_msg));
     }
     let mut x_copy = x.to_vec();
 
-    let msb = gnark_flag_to_ark_flag(x_copy[0])?;
+    let msb = to_bn_flag(x_copy[0])?;
     x_copy[0] = msb;
 
     x_copy.reverse();

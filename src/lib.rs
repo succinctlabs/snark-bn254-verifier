@@ -1,4 +1,5 @@
-#![no_std]
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+#![allow(clippy::missing_docs_in_private_items)]
 
 extern crate alloc;
 
@@ -9,6 +10,7 @@ use plonk::{load_plonk_proof_from_bytes, load_plonk_verifying_key_from_bytes, ve
 
 mod constants;
 mod converter;
+mod error;
 mod groth16;
 mod hash_to_field;
 mod plonk;

@@ -7,37 +7,35 @@ use core::{
 };
 
 use crate::{
-    constants::{
-        GnarkCompressedPointFlag, SerializationError, GNARK_COMPRESSED_INFINITY, GNARK_MASK,
-    },
+    constants::{CompressedPointFlag, SerializationError, COMPRESSED_INFINITY, MASK},
     converter::is_zeroed,
     groth16::{Groth16G1, Groth16G2, Groth16Proof, Groth16VerifyingKey, PedersenVerifyingKey},
 };
 
-fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, GnarkCompressedPointFlag)> {
+fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, CompressedPointFlag)> {
     if buf.len() != 32 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
 
-    let m_data = buf[0] & GNARK_MASK;
-    if m_data == GNARK_COMPRESSED_INFINITY {
-        if !is_zeroed(buf[0] & !GNARK_MASK, &buf[1..32])? {
+    let m_data = buf[0] & MASK;
+    if m_data == COMPRESSED_INFINITY {
+        if !is_zeroed(buf[0] & !MASK, &buf[1..32])? {
             return Err(anyhow!(SerializationError::InvalidData));
         }
-        Ok((Fq::zero(), GnarkCompressedPointFlag::Infinity))
+        Ok((Fq::zero(), CompressedPointFlag::Infinity))
     } else {
         let mut x_bytes: [u8; 32] = [0u8; 32];
         x_bytes.copy_from_slice(buf);
-        x_bytes[0] &= !GNARK_MASK;
+        x_bytes[0] &= !MASK;
 
         let x = Fq::from_be_bytes_mod_order(&x_bytes.to_vec())
             .expect("Failed to convert x bytes to Fq");
 
-        Ok((x, GnarkCompressedPointFlag::from(m_data)))
+        Ok((x, CompressedPointFlag::from(m_data)))
     }
 }
 
-fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+fn compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
     let (x, m_data) = deserialize_with_flags(buf)?;
     let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
         .ok_or(SerializationError::InvalidData)
@@ -45,11 +43,11 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
 
     let mut final_y = y;
     if y.cmp(&neg_y) == Ordering::Greater {
-        if m_data == GnarkCompressedPointFlag::Positive {
+        if m_data == CompressedPointFlag::Positive {
             final_y = y.neg();
         }
     } else {
-        if m_data == GnarkCompressedPointFlag::Negative {
+        if m_data == CompressedPointFlag::Negative {
             final_y = y.neg();
         }
     }
@@ -57,7 +55,7 @@ fn gnark_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
     Ok(AffineG1::new(x, final_y).map_err(Error::msg)?)
 }
 
-fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
+fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
     if buf.len() != 64 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
@@ -66,7 +64,7 @@ fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
     let (x1, flag) = deserialize_with_flags(&buf[32..64])?;
     let x = Fq2::new(x0, x1);
 
-    if flag == GnarkCompressedPointFlag::Infinity {
+    if flag == CompressedPointFlag::Infinity {
         return Ok(AffineG2::one());
     }
 
@@ -75,13 +73,13 @@ fn gnark_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
         .map_err(Error::msg)?;
 
     match flag {
-        GnarkCompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::msg)?),
-        GnarkCompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::msg)?),
+        CompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::msg)?),
+        CompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::msg)?),
         _ => Err(anyhow!(SerializationError::InvalidData)),
     }
 }
 
-pub fn gnark_uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+pub fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
     if buf.len() != 64 {
         return Err(anyhow!(SerializationError::InvalidData));
     };
@@ -104,9 +102,9 @@ pub fn gnark_uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
 }
 
 pub(crate) fn load_groth16_proof_from_bytes(buffer: &[u8]) -> Result<Groth16Proof> {
-    let ar = gnark_compressed_x_to_g1_point(&buffer[..32])?;
-    let bs = gnark_compressed_x_to_g2_point(&buffer[32..96])?;
-    let krs = gnark_compressed_x_to_g1_point(&buffer[96..128])?;
+    let ar = compressed_x_to_g1_point(&buffer[..32])?;
+    let bs = compressed_x_to_g2_point(&buffer[32..96])?;
+    let krs = compressed_x_to_g1_point(&buffer[96..128])?;
 
     Ok(Groth16Proof {
         ar,
@@ -118,18 +116,18 @@ pub(crate) fn load_groth16_proof_from_bytes(buffer: &[u8]) -> Result<Groth16Proo
 }
 
 pub(crate) fn load_groth16_verifying_key_from_bytes(buffer: &[u8]) -> Result<Groth16VerifyingKey> {
-    let g1_alpha = gnark_compressed_x_to_g1_point(&buffer[..32])?;
-    let g1_beta = gnark_compressed_x_to_g1_point(&buffer[32..64])?;
-    let g2_beta = gnark_compressed_x_to_g2_point(&buffer[64..128])?;
-    let g2_gamma = gnark_compressed_x_to_g2_point(&buffer[128..192])?;
-    let g1_delta = gnark_compressed_x_to_g1_point(&buffer[192..224])?;
-    let g2_delta = gnark_compressed_x_to_g2_point(&buffer[224..288])?;
+    let g1_alpha = compressed_x_to_g1_point(&buffer[..32])?;
+    let g1_beta = compressed_x_to_g1_point(&buffer[32..64])?;
+    let g2_beta = compressed_x_to_g2_point(&buffer[64..128])?;
+    let g2_gamma = compressed_x_to_g2_point(&buffer[128..192])?;
+    let g1_delta = compressed_x_to_g1_point(&buffer[192..224])?;
+    let g2_delta = compressed_x_to_g2_point(&buffer[224..288])?;
 
     let num_k = u32::from_be_bytes([buffer[288], buffer[289], buffer[290], buffer[291]]);
     let mut k = Vec::new();
     let mut offset = 292;
     for _ in 0..num_k {
-        let point = gnark_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
+        let point = compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
         k.push(point);
         offset += 32;
     }
@@ -154,9 +152,9 @@ pub(crate) fn load_groth16_verifying_key_from_bytes(buffer: &[u8]) -> Result<Gro
         }
     }
 
-    let commitment_key_g = gnark_compressed_x_to_g2_point(&buffer[offset..offset + 64])?;
+    let commitment_key_g = compressed_x_to_g2_point(&buffer[offset..offset + 64])?;
     let commitment_key_g_root_sigma_neg =
-        gnark_compressed_x_to_g2_point(&buffer[offset + 64..offset + 128])?;
+        compressed_x_to_g2_point(&buffer[offset + 64..offset + 128])?;
 
     Ok(Groth16VerifyingKey {
         g1: Groth16G1 {
