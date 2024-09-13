@@ -1,9 +1,9 @@
-use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
-use core::cmp::Ordering;
+use bn::{AffineG1, Fr, G2};
 
 use crate::{
-    constants::{CompressedPointFlag, MASK},
-    converter::is_zeroed,
+    converter::{
+        compressed_x_to_g1_point, compressed_x_to_g2_point, uncompressed_bytes_to_g1_point,
+    },
     error::Error,
 };
 
@@ -13,90 +13,6 @@ use super::{
     verify::PlonkVerifyingKey,
     PlonkProof,
 };
-
-fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, CompressedPointFlag), PlonkError> {
-    if buf.len() != 32 {
-        return Err(PlonkError::InvalidXLength);
-    };
-
-    let m_data = buf[0] & MASK;
-    if m_data == CompressedPointFlag::Infinity.into() {
-        if !is_zeroed(buf[0] & !MASK, &buf[1..32]).map_err(PlonkError::GeneralError)? {
-            return Err(PlonkError::GeneralError(Error::InvalidPoint));
-        }
-        Ok((Fq::zero(), CompressedPointFlag::Infinity))
-    } else {
-        let mut x_bytes: [u8; 32] = [0u8; 32];
-        x_bytes.copy_from_slice(buf);
-        x_bytes[0] &= !MASK;
-
-        let x = Fq::from_be_bytes_mod_order(&x_bytes).expect("Failed to convert x bytes to Fq");
-
-        Ok((x, CompressedPointFlag::from(m_data)))
-    }
-}
-
-fn compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1, PlonkError> {
-    let (x, m_data) = deserialize_with_flags(buf)?;
-    let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
-        .ok_or(PlonkError::GeneralError(Error::InvalidPoint))?;
-
-    let mut final_y = y;
-    if y.cmp(&neg_y) == Ordering::Greater {
-        if m_data == CompressedPointFlag::Positive {
-            final_y = -y;
-        }
-    } else {
-        if m_data == CompressedPointFlag::Negative {
-            final_y = -y;
-        }
-    }
-
-    Ok(AffineG1::new(x, final_y).map_err(|e| PlonkError::GeneralError(Error::GroupError(e)))?)
-}
-
-fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, PlonkError> {
-    if buf.len() != 64 {
-        return Err(PlonkError::GeneralError(Error::InvalidXLength));
-    };
-
-    let (x1, flag) = deserialize_with_flags(&buf[..32])?;
-    let x0 = Fq::from_be_bytes_mod_order(&buf[32..64])
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
-    let x = Fq2::new(x0, x1);
-
-    if flag == CompressedPointFlag::Infinity {
-        return Ok(AffineG2::one());
-    }
-
-    let (y, neg_y) = AffineG2::get_ys_from_x_unchecked(x)
-        .ok_or(PlonkError::GeneralError(Error::InvalidPoint))?;
-
-    match flag {
-        CompressedPointFlag::Positive => {
-            Ok(AffineG2::new(x, y).map_err(|e| PlonkError::GeneralError(Error::GroupError(e)))?)
-        }
-        CompressedPointFlag::Negative => {
-            Ok(AffineG2::new(x, neg_y)
-                .map_err(|e| PlonkError::GeneralError(Error::GroupError(e)))?)
-        }
-        _ => Err(PlonkError::GeneralError(Error::InvalidPoint)),
-    }
-}
-
-pub fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1, PlonkError> {
-    if buf.len() != 64 {
-        return Err(PlonkError::GeneralError(Error::InvalidXLength));
-    };
-
-    let (x_bytes, y_bytes) = buf.split_at(32);
-
-    let x = Fq::from_slice(x_bytes).map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
-    let y = Fq::from_slice(y_bytes).map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
-    let p = AffineG1::new(x, y).map_err(|e| PlonkError::GeneralError(Error::GroupError(e)))?;
-
-    Ok(p)
-}
 
 pub(crate) fn load_plonk_verifying_key_from_bytes(
     buffer: &[u8],
