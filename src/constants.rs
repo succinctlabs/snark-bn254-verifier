@@ -8,11 +8,6 @@ pub const COMPRESSED_POSTIVE: u8 = 0b10 << 6;
 pub const COMPRESSED_NEGATIVE: u8 = 0b11 << 6;
 pub const COMPRESSED_INFINITY: u8 = 0b01 << 6;
 
-pub const SUBSTRATE_MASK: u8 = 0b11 << 6;
-pub const SUBSTRATE_COMPRESSED_POSTIVE: u8 = 0b00 << 6;
-pub const SUBSTRATE_COMPRESSED_NEGATIVE: u8 = 0b10 << 6;
-pub const SUBSTRATE_COMPRESSED_INFINITY: u8 = 0b01 << 6;
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum CompressedPointFlag {
     Positive = COMPRESSED_POSTIVE as isize,

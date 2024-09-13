@@ -31,6 +31,7 @@ pub struct Groth16VerifyingKey {
     pub public_and_commitment_committed: Vec<Vec<u32>>,
 }
 
+#[allow(dead_code)]
 pub struct Groth16Proof {
     pub ar: AffineG1,
     pub krs: AffineG1,
