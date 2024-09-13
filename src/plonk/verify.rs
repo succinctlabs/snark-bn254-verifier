@@ -31,19 +31,33 @@ pub(crate) struct PlonkVerifyingKey {
     pub(crate) commitment_constraint_indexes: Vec<usize>,
 }
 
+/// Verifies a PLONK proof
+///
+/// # Arguments
+///
+/// * `vk` - The verifying key
+/// * `proof` - The PLONK proof
+/// * `public_inputs` - The public inputs to the circuit
+///
+/// # Returns
+///
+/// * `Result<bool, PlonkError>` - Returns true if the proof is valid, or an error if verification fails
 pub fn verify_plonk(
     vk: &PlonkVerifyingKey,
     proof: &PlonkProof,
     public_inputs: &[Fr],
 ) -> Result<bool, PlonkError> {
+    // Check if the number of BSB22 commitments matches the number of Qcp in the verifying key
     if proof.bsb22_commitments.len() != vk.qcp.len() {
         return Err(PlonkError::GeneralError(Error::Bsb22CommitmentMismatch));
     }
 
+    // Check if the number of public inputs matches the number of public variables in the verifying key
     if public_inputs.len() != vk.nb_public_variables {
         return Err(PlonkError::GeneralError(Error::InvalidWitness));
     }
 
+    // Initialize the Fiat-Shamir transcript
     let mut fs = Transcript::new(Some(
         [
             GAMMA.to_string(),
@@ -54,43 +68,52 @@ pub fn verify_plonk(
         .to_vec(),
     ))?;
 
+    // Bind public data to the transcript
     bind_public_data(&mut fs, GAMMA, vk, public_inputs)?;
 
+    // Derive gamma challenge: γ
     let gamma = derive_randomness(
         &mut fs,
         GAMMA,
         Some([proof.lro[0], proof.lro[1], proof.lro[2]].to_vec()),
     )?;
 
+    // Derive beta challenge: β
     let beta = derive_randomness(&mut fs, BETA, None)?;
 
+    // Derive alpha challenge: α
     let mut alpha_deps: Vec<AffineG1> = proof.bsb22_commitments.iter().cloned().collect();
     alpha_deps.push(proof.z);
-
     let alpha = derive_randomness(&mut fs, ALPHA, Some(alpha_deps))?;
 
+    // Derive zeta challenge (point of evaluation): ζ
     let zeta = derive_randomness(
         &mut fs,
         ZETA,
         Some([proof.h[0], proof.h[1], proof.h[2]].to_vec()),
     )?;
 
+    // Compute zh_zeta = ζⁿ - 1
     let one = Fr::one();
     let n = U256::from(vk.size as u64);
     let n = Fr::from_slice(&n.to_bytes_be())
         .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
     let zeta_power_n = zeta.pow(n);
     let zh_zeta = zeta_power_n - one;
+
+    // Compute Lagrange polynomial at ζ: L₁(ζ) = (ζⁿ - 1) / (n * (ζ - 1))
     let mut lagrange_one = (zeta - one)
         .inverse()
         .expect(&Error::InverseNotFound.to_string());
     lagrange_one *= zh_zeta;
     lagrange_one *= vk.size_inv;
 
+    // Compute PI = ∑_{i<n} Lᵢ(ζ) * wᵢ
     let mut pi = Fr::zero();
     let mut accw = Fr::one();
     let mut dens = Vec::with_capacity(public_inputs.len());
 
+    // Compute [ζ-1, ζ-ω, ζ-ω², ...]
     for _ in 0..public_inputs.len() {
         let mut temp = zeta;
         temp -= accw;
@@ -98,11 +121,13 @@ pub fn verify_plonk(
         accw *= vk.generator;
     }
 
+    // Compute [1/(ζ-1), 1/(ζ-ω), 1/(ζ-ω²), ...]
     let inv_dens = batch_invert(&dens)?;
 
     accw = Fr::one();
     let mut xi_li;
     for (i, public_input) in public_inputs.iter().enumerate() {
+        // Compute Lᵢ(ζ) * wᵢ = (ζⁿ - 1) / (n * (ζ - ωⁱ)) * wᵢ
         xi_li = zh_zeta;
         xi_li *= inv_dens[i];
         xi_li *= vk.size_inv;
@@ -112,6 +137,7 @@ pub fn verify_plonk(
         pi += xi_li;
     }
 
+    // Handle BSB22 commitments
     let mut hash_to_field = crate::hash_to_field::WrappedHashToField::new(b"BSB22-Plonk")?;
 
     for i in 0..vk.commitment_constraint_indexes.len() {
@@ -137,6 +163,7 @@ pub fn verify_plonk(
         pi += xi_li;
     }
 
+    // Extract claimed values from the proof
     let l = proof.batched_proof.claimed_values[1];
     let r = proof.batched_proof.claimed_values[2];
     let o = proof.batched_proof.claimed_values[3];
@@ -145,6 +172,7 @@ pub fn verify_plonk(
 
     let zu = proof.z_shifted_opening.claimed_value;
 
+    // Compute α²*L₁(ζ)
     let alpha_square_lagrange_one = {
         let mut tmp = lagrange_one;
         tmp *= alpha;
@@ -152,6 +180,8 @@ pub fn verify_plonk(
         tmp
     };
 
+    // Compute the constant term of the linearization polynomial:
+    // -[PI(ζ) - α²*L₁(ζ) + α(l(ζ)+β*s1(ζ)+γ)(r(ζ)+β*s2(ζ)+γ)(o(ζ)+γ)*z(ωζ)]
     let mut tmp = beta;
     tmp *= s1;
     tmp += gamma;
@@ -177,19 +207,20 @@ pub fn verify_plonk(
 
     const_lin = -const_lin;
 
+    // Check if the opening of the linearized polynomial is equal to -const_lin
     let opening_lin_pol = proof.batched_proof.claimed_values[0];
 
     if const_lin != opening_lin_pol {
         return Err(Error::OpeningPolyMismatch.into());
     }
 
-    let _s1 = Fr::zero();
-    let _s2 = Fr::zero();
-
+    // Compute coefficients for the linearized polynomial
+    // _s1 = α*(l(ζ)+β*s1(ζ)+γ)*(r(ζ)+β*s2(ζ)+γ)*β*Z(ωζ)
     let mut _s1 = beta * s1 + l + gamma;
     let tmp = beta * s2 + r + gamma;
     _s1 = _s1 * tmp * beta * alpha * zu;
 
+    // _s2 = -α*(l(ζ)+β*ζ+γ)*(r(ζ)+β*u*ζ+γ)*(o(ζ)+β*u²*ζ+γ)
     let mut _s2 = beta * zeta + gamma + l;
     let mut tmp = beta * vk.coset_shift * zeta + gamma + r;
     _s2 *= tmp;
@@ -198,22 +229,28 @@ pub fn verify_plonk(
     _s2 *= alpha;
     _s2 = -_s2;
 
+    // coeff_z = α²*L₁(ζ) - α*(l(ζ)+β*ζ+γ)*(r(ζ)+β*u*ζ+γ)*(o(ζ)+β*u²*ζ+γ)
     let coeff_z = alpha_square_lagrange_one + _s2;
 
     let rl = l * r;
 
+    // Compute powers of zeta
     let n_plus_two = U256::from(vk.size as u64 + 2);
     let n_plus_two = Fr::from_slice(&n_plus_two.to_bytes_be())
         .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
 
+    // -ζⁿ⁺²*(ζⁿ-1)
     let mut zeta_n_plus_two_zh = zeta.pow(n_plus_two);
+    // -ζ²⁽ⁿ⁺²⁾*(ζⁿ-1)
     let mut zeta_n_plus_two_square_zh = zeta_n_plus_two_zh * zeta_n_plus_two_zh;
     zeta_n_plus_two_zh *= zh_zeta;
     zeta_n_plus_two_zh = -zeta_n_plus_two_zh;
     zeta_n_plus_two_square_zh *= zh_zeta;
     zeta_n_plus_two_square_zh = -zeta_n_plus_two_square_zh;
+    // -(ζⁿ-1)
     let zh = -zh_zeta;
 
+    // Prepare points and scalars for the linearized polynomial digest computation
     let mut points = Vec::new();
     points.extend_from_slice(&proof.bsb22_commitments);
     points.push(vk.ql);
@@ -242,8 +279,12 @@ pub fn verify_plonk(
     scalars.push(zeta_n_plus_two_zh);
     scalars.push(zeta_n_plus_two_square_zh);
 
+    // Compute the linearized polynomial digest:
+    // α²*L₁(ζ)*[Z] + _s1*[s3]+_s2*[Z] + l(ζ)*[Ql] + l(ζ)r(ζ)*[Qm] + r(ζ)*[Qr] + o(ζ)*[Qo] + [Qk] + ∑ᵢQcp_(ζ)[Pi_i] -
+    // Z_{H}(ζ)*(([H₀] + ζᵐ⁺²*[H₁] + ζ²⁽ᵐ⁺²⁾*[H₂])
     let linearized_polynomial_digest = AffineG1::msm(&points, &scalars);
 
+    // Prepare digests for folding
     let mut digests_to_fold = vec![AffineG1::default(); vk.qcp.len() + 6];
     digests_to_fold[6..].copy_from_slice(&vk.qcp);
     digests_to_fold[0] = linearized_polynomial_digest;
@@ -253,6 +294,7 @@ pub fn verify_plonk(
     digests_to_fold[4] = vk.s[0];
     digests_to_fold[5] = vk.s[1];
 
+    // Fold the proof
     let (folded_proof, folded_digest) = kzg::fold_proof(
         digests_to_fold,
         &proof.batched_proof,
@@ -264,6 +306,7 @@ pub fn verify_plonk(
 
     let folded_digest: AffineG1 = folded_digest.into();
 
+    // Perform batch verification
     kzg::batch_verify_multi_points(
         [folded_digest, proof.z].to_vec(),
         [folded_proof, proof.z_shifted_opening].to_vec(),
