@@ -261,13 +261,7 @@ pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof, P
 }
 
 pub(crate) fn g1_to_bytes(g1: &AffineG1) -> Result<Vec<u8>, PlonkError> {
-    let mut bytes = [0u8; 64];
-    g1.x()
-        .to_big_endian(&mut bytes[0..32])
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
-    g1.y()
-        .to_big_endian(&mut bytes[32..64])
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+    let mut bytes: [u8; 64] = unsafe { core::mem::transmute(*g1) };
     bytes[..32].reverse();
     bytes[32..].reverse();
     Ok(bytes.to_vec())
