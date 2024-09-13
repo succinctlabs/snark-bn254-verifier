@@ -1,9 +1,12 @@
-use anyhow::{Error, Ok, Result};
 use bn::Fr;
 use core::cmp::Ordering;
 use lazy_static::lazy_static;
 use num_bigint::{BigInt, Sign};
 use num_traits::Num;
+
+use crate::error::Error;
+
+use super::error::PlonkError;
 
 #[derive(Clone, Debug)]
 pub(crate) struct PlonkFr(Fr);
@@ -17,26 +20,30 @@ lazy_static! {
 }
 
 impl PlonkFr {
-    pub(crate) fn set_bytes(bytes: &[u8]) -> Result<Self> {
+    pub(crate) fn set_bytes(bytes: &[u8]) -> Result<Self, PlonkError> {
         let biguint_bytes = BigInt::from_bytes_be(Sign::Plus, bytes);
 
         let cmp = biguint_bytes.cmp(&MODULUS);
         if cmp == Ordering::Equal {
             return Ok(PlonkFr(Fr::zero()));
         } else if cmp != Ordering::Greater && bytes.cmp(&[0u8; 32][..]) != Ordering::Less {
-            return Ok(PlonkFr(Fr::from_slice(bytes).map_err(Error::msg)?));
+            return Ok(PlonkFr(
+                Fr::from_slice(bytes)
+                    .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?,
+            ));
         }
 
         // Mod the bytes with MODULUS
         let biguint_bytes = BigInt::from_bytes_be(Sign::Plus, bytes);
         let biguint_mod = biguint_bytes % &*MODULUS;
         let (_, bytes_le) = biguint_mod.to_bytes_be();
-        let e = Fr::from_slice(&bytes_le).map_err(Error::msg)?;
+        let e = Fr::from_slice(&bytes_le)
+            .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
 
         Ok(PlonkFr(e))
     }
 
-    pub(crate) fn into_fr(self) -> Result<Fr> {
+    pub(crate) fn into_fr(self) -> Result<Fr, PlonkError> {
         Ok(self.0)
     }
 }

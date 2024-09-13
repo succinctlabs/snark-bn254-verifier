@@ -1,4 +1,3 @@
-use anyhow::Result;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
@@ -21,7 +20,7 @@ pub(crate) struct Transcript {
 }
 
 impl Transcript {
-    pub(crate) fn new(challenges_id: Option<Vec<String>>) -> Result<Self> {
+    pub(crate) fn new(challenges_id: Option<Vec<String>>) -> Result<Self, Error> {
         let h = Sha256::new();
 
         if let Some(challenges_id) = challenges_id {
@@ -52,7 +51,7 @@ impl Transcript {
         }
     }
 
-    pub(crate) fn bind(&mut self, id: &str, binding: &[u8]) -> Result<()> {
+    pub(crate) fn bind(&mut self, id: &str, binding: &[u8]) -> Result<(), Error> {
         let current_challenge = self
             .challenges
             .get_mut(id)
@@ -66,7 +65,7 @@ impl Transcript {
         Ok(())
     }
 
-    pub(crate) fn compute_challenge(&mut self, challenge_id: &str) -> Result<Vec<u8>> {
+    pub(crate) fn compute_challenge(&mut self, challenge_id: &str) -> Result<Vec<u8>, Error> {
         let challenge = self
             .challenges
             .get_mut(challenge_id)

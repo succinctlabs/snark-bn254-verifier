@@ -36,16 +36,3 @@ impl From<u8> for CompressedPointFlag {
         }
     }
 }
-
-#[derive(Debug)]
-pub enum SerializationError {
-    InvalidData,
-}
-
-impl core::fmt::Display for SerializationError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            SerializationError::InvalidData => write!(f, "Invalid data"),
-        }
-    }
-}

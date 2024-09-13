@@ -1,4 +1,3 @@
-use anyhow::Result;
 use core::hash::Hasher;
 use sha2::Digest;
 
@@ -12,7 +11,7 @@ pub(crate) struct WrappedHashToField {
 
 impl WrappedHashToField {
     // Creates a new instance with a domain separator
-    pub(crate) fn new(domain_separator: &[u8]) -> Result<Self> {
+    pub(crate) fn new(domain_separator: &[u8]) -> Result<Self, Error> {
         Ok(Self {
             domain: domain_separator.to_vec(),
             to_hash: Vec::new(),
@@ -20,13 +19,13 @@ impl WrappedHashToField {
     }
 
     // Hashes the bytes to a field element and returns the byte representation
-    pub(crate) fn sum(&self) -> Result<Vec<u8>> {
+    pub(crate) fn sum(&self) -> Result<Vec<u8>, Error> {
         let res = Self::hash(self.to_hash.clone(), self.domain.clone(), 1)?;
 
         Ok(res[0].clone())
     }
 
-    pub fn hash(msg: Vec<u8>, dst: Vec<u8>, count: usize) -> Result<Vec<Vec<u8>>> {
+    pub fn hash(msg: Vec<u8>, dst: Vec<u8>, count: usize) -> Result<Vec<Vec<u8>>, Error> {
         let bytes = 32;
         let l = 16 + bytes;
 
@@ -41,7 +40,7 @@ impl WrappedHashToField {
         Ok(res)
     }
 
-    fn expand_msg_xmd(msg: Vec<u8>, dst: Vec<u8>, len: usize) -> Result<Vec<u8>> {
+    fn expand_msg_xmd(msg: Vec<u8>, dst: Vec<u8>, len: usize) -> Result<Vec<u8>, Error> {
         let mut h = sha2::Sha256::new();
 
         let ell = (len + 32 - 1) / 32;

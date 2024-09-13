@@ -1,29 +1,29 @@
 use alloc::vec::Vec;
+use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
 use core::cmp::Ordering;
 
-use anyhow::{anyhow, Error, Result};
-use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
-
 use crate::{
-    constants::{CompressedPointFlag, SerializationError, MASK},
+    constants::{CompressedPointFlag, MASK},
     converter::is_zeroed,
+    error::Error,
 };
 
 use super::{
+    error::PlonkError,
     kzg::{self, BatchOpeningProof, LineEvaluationAff, OpeningProof, E2},
     verify::PlonkVerifyingKey,
     PlonkProof,
 };
 
-fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, CompressedPointFlag)> {
+fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, CompressedPointFlag), PlonkError> {
     if buf.len() != 32 {
-        return Err(anyhow!(SerializationError::InvalidData));
+        return Err(PlonkError::InvalidXLength);
     };
 
     let m_data = buf[0] & MASK;
     if m_data == CompressedPointFlag::Infinity.into() {
-        if !is_zeroed(buf[0] & !MASK, &buf[1..32])? {
-            return Err(anyhow!(SerializationError::InvalidData));
+        if !is_zeroed(buf[0] & !MASK, &buf[1..32]).map_err(PlonkError::GeneralError)? {
+            return Err(PlonkError::GeneralError(Error::InvalidPoint));
         }
         Ok((Fq::zero(), CompressedPointFlag::Infinity))
     } else {
@@ -37,11 +37,10 @@ fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, CompressedPointFlag)> {
     }
 }
 
-fn compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+fn compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1, PlonkError> {
     let (x, m_data) = deserialize_with_flags(buf)?;
     let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x)
-        .ok_or(SerializationError::InvalidData)
-        .map_err(Error::msg)?;
+        .ok_or(PlonkError::GeneralError(Error::InvalidPoint))?;
 
     let mut final_y = y;
     if y.cmp(&neg_y) == Ordering::Greater {
@@ -54,18 +53,17 @@ fn compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
         }
     }
 
-    Ok(AffineG1::new(x, final_y).map_err(Error::msg)?)
+    Ok(AffineG1::new(x, final_y).map_err(|e| PlonkError::GeneralError(Error::GroupError(e)))?)
 }
 
-fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
+fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, PlonkError> {
     if buf.len() != 64 {
-        return Err(anyhow!(SerializationError::InvalidData));
+        return Err(PlonkError::GeneralError(Error::InvalidXLength));
     };
 
-    let (x1, flag) = deserialize_with_flags(&buf[..32]).expect("Failed to deserialize x1");
+    let (x1, flag) = deserialize_with_flags(&buf[..32])?;
     let x0 = Fq::from_be_bytes_mod_order(&buf[32..64])
-        .map_err(Error::msg)
-        .expect("Failed to deserialize x0");
+        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
     let x = Fq2::new(x0, x1);
 
     if flag == CompressedPointFlag::Infinity {
@@ -73,43 +71,52 @@ fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2> {
     }
 
     let (y, neg_y) = AffineG2::get_ys_from_x_unchecked(x)
-        .ok_or(SerializationError::InvalidData)
-        .map_err(Error::msg)?;
+        .ok_or(PlonkError::GeneralError(Error::InvalidPoint))?;
 
     match flag {
-        CompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::msg)?),
-        CompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::msg)?),
-        _ => Err(anyhow!(SerializationError::InvalidData)),
+        CompressedPointFlag::Positive => {
+            Ok(AffineG2::new(x, y).map_err(|e| PlonkError::GeneralError(Error::GroupError(e)))?)
+        }
+        CompressedPointFlag::Negative => {
+            Ok(AffineG2::new(x, neg_y)
+                .map_err(|e| PlonkError::GeneralError(Error::GroupError(e)))?)
+        }
+        _ => Err(PlonkError::GeneralError(Error::InvalidPoint)),
     }
 }
 
-pub fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1> {
+pub fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1, PlonkError> {
     if buf.len() != 64 {
-        return Err(anyhow!(SerializationError::InvalidData));
+        return Err(PlonkError::GeneralError(Error::InvalidXLength));
     };
 
     let (x_bytes, y_bytes) = buf.split_at(32);
 
-    let x = Fq::from_slice(x_bytes).map_err(Error::msg)?;
-    let y = Fq::from_slice(y_bytes).map_err(Error::msg)?;
-    let p = AffineG1::new(x, y).map_err(Error::msg)?;
+    let x = Fq::from_slice(x_bytes).map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+    let y = Fq::from_slice(y_bytes).map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+    let p = AffineG1::new(x, y).map_err(|e| PlonkError::GeneralError(Error::GroupError(e)))?;
 
     Ok(p)
 }
 
-pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<PlonkVerifyingKey> {
+pub(crate) fn load_plonk_verifying_key_from_bytes(
+    buffer: &[u8],
+) -> Result<PlonkVerifyingKey, PlonkError> {
     let size = u64::from_be_bytes([
         buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7],
     ]) as usize;
-    let size_inv = Fr::from_slice(&buffer[8..40]).map_err(Error::msg)?;
-    let generator = Fr::from_slice(&buffer[40..72]).map_err(|err| anyhow!("{err:?}"))?;
+    let size_inv = Fr::from_slice(&buffer[8..40])
+        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+    let generator = Fr::from_slice(&buffer[40..72])
+        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
 
     let nb_public_variables = u64::from_be_bytes([
         buffer[72], buffer[73], buffer[74], buffer[75], buffer[76], buffer[77], buffer[78],
         buffer[79],
     ]) as usize;
 
-    let coset_shift = Fr::from_slice(&buffer[80..112]).map_err(|err| anyhow!("{err:?}"))?;
+    let coset_shift = Fr::from_slice(&buffer[80..112])
+        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
     let s0 = compressed_x_to_g1_point(&buffer[112..144])?;
     let s1 = compressed_x_to_g1_point(&buffer[144..176])?;
     let s2 = compressed_x_to_g1_point(&buffer[176..208])?;
@@ -195,7 +202,7 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(buffer: &[u8]) -> Result<Plonk
     Ok(result)
 }
 
-pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
+pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof, PlonkError> {
     let lro0 = uncompressed_bytes_to_g1_point(&buffer[..64])?;
     let lro1 = uncompressed_bytes_to_g1_point(&buffer[64..128])?;
     let lro2 = uncompressed_bytes_to_g1_point(&buffer[128..192])?;
@@ -211,14 +218,15 @@ pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
     let mut claimed_values = Vec::new();
     let mut offset = 516;
     for _ in 0..num_claimed_values {
-        let value = Fr::from_slice(&buffer[offset..offset + 32]).map_err(Error::msg)?;
+        let value = Fr::from_slice(&buffer[offset..offset + 32])
+            .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
         claimed_values.push(value);
         offset += 32;
     }
 
     let z_shifted_opening_h = uncompressed_bytes_to_g1_point(&buffer[offset..offset + 64])?;
-    let z_shifted_opening_value =
-        Fr::from_slice(&buffer[offset + 64..offset + 96]).map_err(Error::msg)?;
+    let z_shifted_opening_value = Fr::from_slice(&buffer[offset + 64..offset + 96])
+        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
 
     let num_bsb22_commitments = u32::from_be_bytes([
         buffer[offset + 96],
@@ -253,7 +261,7 @@ pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof> {
     Ok(result)
 }
 
-pub(crate) fn g1_to_bytes(g1: &AffineG1) -> Result<Vec<u8>> {
+pub(crate) fn g1_to_bytes(g1: &AffineG1) -> Result<Vec<u8>, PlonkError> {
     let mut bytes: [u8; 64] = unsafe { core::mem::transmute(*g1) };
     bytes[..32].reverse();
     bytes[32..].reverse();
