@@ -13,6 +13,7 @@ version = "1.0.2"
 
 [dependencies]
 bn = { git = "https://github.com/sp1-patches/bn", branch = "patch-v0.7.0", package = "substrate-bn" }
+bytemuck = "1.18.0"
 lazy_static = "1.5.0"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"

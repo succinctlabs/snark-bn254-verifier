@@ -78,28 +78,6 @@ fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, Groth16Error> {
     }
 }
 
-pub fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1, Groth16Error> {
-    if buf.len() != 64 {
-        return Err(Groth16Error::GeneralError(Error::InvalidData));
-    };
-
-    let (x_bytes, y_bytes) = buf.split_at(32);
-
-    let x =
-        Fq::from_be_bytes_mod_order(&x_bytes.to_vec()).expect("Failed to convert x bytes to Fq");
-    let y =
-        Fq::from_be_bytes_mod_order(&y_bytes.to_vec()).expect("Failed to convert y bytes to Fq");
-
-    let mut x_bytes = [0u8; 32];
-    x.to_big_endian(&mut x_bytes)
-        .expect("Failed to convert x to big endian bytes");
-    let mut y_bytes = [0u8; 32];
-    y.to_big_endian(&mut y_bytes)
-        .expect("Failed to convert y to big endian bytes");
-
-    AffineG1::new(x, y).map_err(|e| Groth16Error::GeneralError(Error::SerializationError))
-}
-
 pub(crate) fn load_groth16_proof_from_bytes(buffer: &[u8]) -> Result<Groth16Proof, Groth16Error> {
     let ar = compressed_x_to_g1_point(&buffer[..32])?;
     let bs = compressed_x_to_g2_point(&buffer[32..96])?;
