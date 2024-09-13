@@ -150,19 +150,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gnark-bn254-verifier"
-version = "1.0.2"
-dependencies = [
- "lazy_static",
- "num-bigint",
- "num-traits",
- "rand",
- "sha2",
- "substrate-bn",
- "thiserror",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -393,6 +380,19 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "snark-bn254-verifier"
+version = "1.0.2"
+dependencies = [
+ "lazy_static",
+ "num-bigint",
+ "num-traits",
+ "rand",
+ "sha2",
+ "substrate-bn",
+ "thiserror",
 ]
 
 [[package]]
