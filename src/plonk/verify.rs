@@ -1,5 +1,3 @@
-use alloc::{string::ToString, vec::Vec};
-use anyhow::{anyhow, Result};
 use bn::{arith::U256, AffineG1, Fr};
 use core::hash::Hasher;
 
@@ -9,7 +7,7 @@ use crate::{
     transcript::Transcript,
 };
 
-use super::{converter::g1_to_bytes, element::PlonkFr, kzg, PlonkProof};
+use super::{converter::g1_to_bytes, element::PlonkFr, error::PlonkError, kzg, PlonkProof};
 #[derive(Debug)]
 pub(crate) struct PlonkVerifyingKey {
     pub(crate) size: usize,
@@ -37,13 +35,13 @@ pub fn verify_plonk(
     vk: &PlonkVerifyingKey,
     proof: &PlonkProof,
     public_inputs: &[Fr],
-) -> Result<bool> {
+) -> Result<bool, PlonkError> {
     if proof.bsb22_commitments.len() != vk.qcp.len() {
-        return Err(Error::Bsb22CommitmentMismatch.into());
+        return Err(PlonkError::GeneralError(Error::Bsb22CommitmentMismatch));
     }
 
     if public_inputs.len() != vk.nb_public_variables {
-        return Err(Error::InvalidWitness.into());
+        return Err(PlonkError::GeneralError(Error::InvalidWitness));
     }
 
     let mut fs = Transcript::new(Some(
@@ -79,7 +77,8 @@ pub fn verify_plonk(
 
     let one = Fr::one();
     let n = U256::from(vk.size as u64);
-    let n = Fr::new(n).ok_or_else(|| anyhow!("Beyond the modulus"))?;
+    let n = Fr::from_slice(&n.to_bytes_be())
+        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
     let zeta_power_n = zeta.pow(n);
     let zh_zeta = zeta_power_n - one;
     let mut lagrange_one = (zeta - one)
@@ -204,7 +203,8 @@ pub fn verify_plonk(
     let rl = l * r;
 
     let n_plus_two = U256::from(vk.size as u64 + 2);
-    let n_plus_two = Fr::new(n_plus_two).ok_or_else(|| anyhow!("Beyond the modulus"))?;
+    let n_plus_two = Fr::from_slice(&n_plus_two.to_bytes_be())
+        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
 
     let mut zeta_n_plus_two_zh = zeta.pow(n_plus_two);
     let mut zeta_n_plus_two_square_zh = zeta_n_plus_two_zh * zeta_n_plus_two_zh;
@@ -279,7 +279,7 @@ fn bind_public_data(
     challenge: &str,
     vk: &PlonkVerifyingKey,
     public_inputs: &[Fr],
-) -> Result<()> {
+) -> Result<(), PlonkError> {
     transcript.bind(challenge, &g1_to_bytes(&vk.s[0])?)?;
     transcript.bind(challenge, &g1_to_bytes(&vk.s[1])?)?;
     transcript.bind(challenge, &g1_to_bytes(&vk.s[2])?)?;
@@ -305,7 +305,7 @@ fn derive_randomness(
     transcript: &mut Transcript,
     challenge: &str,
     points: Option<Vec<AffineG1>>,
-) -> Result<Fr> {
+) -> Result<Fr, PlonkError> {
     if let Some(points) = points {
         for point in points {
             let buf = g1_to_bytes(&point)?;
@@ -318,7 +318,7 @@ fn derive_randomness(
     Ok(x)
 }
 
-fn batch_invert(elements: &[Fr]) -> Result<Vec<Fr>> {
+fn batch_invert(elements: &[Fr]) -> Result<Vec<Fr>, PlonkError> {
     let mut elements = elements.to_vec();
     batch_inversion(&mut elements);
     Ok(elements)

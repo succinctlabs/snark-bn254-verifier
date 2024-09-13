@@ -1,6 +1,6 @@
-use alloc::vec::Vec;
-use anyhow::Result;
 use bn::{pairing, pairing_batch, AffineG1, AffineG2, Fr, Gt, G1, G2};
+
+use super::error::Groth16Error;
 
 #[derive(Clone, PartialEq)]
 pub struct Groth16G1 {
@@ -45,14 +45,6 @@ pub struct PreparedVerifyingKey {
     pub alpha_g1_beta_g2: Gt,
     pub gamma_g2_neg_pc: G2,
     pub delta_g2_neg_pc: G2,
-}
-
-#[derive(Debug)]
-pub enum Groth16Error {
-    ProofVerificationFailed,
-    ProcessVerifyingKeyFailed,
-    PrepareInputsFailed,
-    UnexpectedIdentity,
 }
 
 fn process_vk(vk: &Groth16VerifyingKey) -> Result<PreparedVerifyingKey, Groth16Error> {

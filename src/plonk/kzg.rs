@@ -1,11 +1,9 @@
-use alloc::{string::ToString, vec::Vec};
-use anyhow::Result;
 use bn::{pairing_batch, AffineG1, Fr, G1, G2};
 use rand::rngs::OsRng;
 
 use crate::{constants::GAMMA, error::Error, transcript::Transcript};
 
-use super::{converter::g1_to_bytes, element::PlonkFr};
+use super::{converter::g1_to_bytes, element::PlonkFr, error::PlonkError};
 
 pub(crate) type Digest = AffineG1;
 
@@ -49,7 +47,7 @@ fn derive_gamma(
     digests: Vec<Digest>,
     claimed_values: Vec<Fr>,
     data_transcript: Option<Vec<u8>>,
-) -> Result<Fr> {
+) -> Result<Fr, PlonkError> {
     let mut transcript = Transcript::new(Some([GAMMA.to_string()].to_vec()))?;
     transcript.bind(GAMMA, &point.into_u256().to_bytes_be())?;
 
@@ -71,7 +69,7 @@ fn derive_gamma(
     Ok(x)
 }
 
-fn fold(di: Vec<Digest>, fai: Vec<Fr>, ci: Vec<Fr>) -> Result<(AffineG1, Fr)> {
+fn fold(di: Vec<Digest>, fai: Vec<Fr>, ci: Vec<Fr>) -> Result<(AffineG1, Fr), PlonkError> {
     let nb_digests = di.len();
     let mut folded_evaluations = Fr::zero();
 
@@ -89,7 +87,7 @@ pub(crate) fn fold_proof(
     batch_opening_proof: &BatchOpeningProof,
     point: &Fr,
     data_transcript: Option<Vec<u8>>,
-) -> Result<(OpeningProof, AffineG1)> {
+) -> Result<(OpeningProof, AffineG1), PlonkError> {
     let nb_digests = digests.len();
 
     if nb_digests != batch_opening_proof.claimed_values.len() {
@@ -130,7 +128,7 @@ pub(crate) fn batch_verify_multi_points(
     proofs: Vec<OpeningProof>,
     points: Vec<Fr>,
     vk: &KZGVerifyingKey,
-) -> Result<()> {
+) -> Result<(), PlonkError> {
     let nb_digests = digests.len();
     let nb_proofs = proofs.len();
     let nb_points = points.len();
