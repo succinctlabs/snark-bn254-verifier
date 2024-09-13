@@ -7,7 +7,7 @@ use crate::{
     transcript::Transcript,
 };
 
-use super::{converter::g1_to_bytes, element::PlonkFr, error::PlonkError, kzg, PlonkProof};
+use super::{converter::g1_to_bytes, error::PlonkError, kzg, PlonkProof};
 #[derive(Debug)]
 pub(crate) struct PlonkVerifyingKey {
     pub(crate) size: usize,
@@ -314,7 +314,8 @@ fn derive_randomness(
     }
 
     let b = transcript.compute_challenge(challenge)?;
-    let x = PlonkFr::set_bytes(&b.as_slice())?.into_fr()?;
+    let x = Fr::from_bytes_be_mod_order(&b.as_slice())
+        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
     Ok(x)
 }
 

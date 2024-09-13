@@ -1,5 +1,4 @@
 mod converter;
-mod element;
 mod kzg;
 mod proof;
 mod verify;

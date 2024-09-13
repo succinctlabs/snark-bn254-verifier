@@ -3,7 +3,7 @@ use rand::rngs::OsRng;
 
 use crate::{constants::GAMMA, error::Error, transcript::Transcript};
 
-use super::{converter::g1_to_bytes, element::PlonkFr, error::PlonkError};
+use super::{converter::g1_to_bytes, error::PlonkError};
 
 pub(crate) type Digest = AffineG1;
 
@@ -64,7 +64,8 @@ fn derive_gamma(
     }
 
     let gamma_byte = transcript.compute_challenge(GAMMA)?;
-    let x = PlonkFr::set_bytes(&gamma_byte.as_slice())?.into_fr()?;
+    let x = Fr::from_bytes_be_mod_order(&gamma_byte.as_slice())
+        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
 
     Ok(x)
 }
