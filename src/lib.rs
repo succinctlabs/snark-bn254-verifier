@@ -1,8 +1,6 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 #![allow(clippy::missing_docs_in_private_items)]
 
-extern crate alloc;
-
 use groth16::{
     load_groth16_proof_from_bytes, load_groth16_verifying_key_from_bytes, verify_groth16,
 };
