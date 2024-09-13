@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
 use core::cmp::Ordering;
 

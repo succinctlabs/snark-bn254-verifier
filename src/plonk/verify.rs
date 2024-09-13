@@ -244,7 +244,7 @@ pub fn verify_plonk(
 
     let linearized_polynomial_digest = AffineG1::msm(&points, &scalars);
 
-    let mut digests_to_fold = alloc::vec![AffineG1::default(); vk.qcp.len() + 6];
+    let mut digests_to_fold = vec![AffineG1::default(); vk.qcp.len() + 6];
     digests_to_fold[6..].copy_from_slice(&vk.qcp);
     digests_to_fold[0] = linearized_polynomial_digest;
     digests_to_fold[1] = proof.lro[0];
