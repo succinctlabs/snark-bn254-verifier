@@ -36,7 +36,7 @@ async fn main() {
     proof.save(proof_file).unwrap();
     
     let vk_dir_entry = try_install_circuit_artifacts();
-    let vk_bin_path = vk_dir_entry.join("vk.bin");
+    let vk_bin_path = vk_dir_entry.join("plonk_vk.bin");
 
     let vk = std::fs::read(vk_bin_path).unwrap();
     let proof = SP1ProofWithPublicValues::load("proof.bin").unwrap();
@@ -58,7 +58,7 @@ async fn main() {
     // Generate the proof for the given program and input.
     let (_, vk) = client.setup(ELF);
     let proof = client
-        .prove(ELF, stdin, ProofMode::Core, None)
+        .prove(ELF, stdin, ProofMode::Plonk, None)
         .await
         .unwrap();
 
