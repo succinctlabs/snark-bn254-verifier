@@ -406,7 +406,6 @@ dependencies = [
 [[package]]
 name = "snark-bn254-verifier"
 version = "1.0.2"
-source = "git+https://github.com/0xWOLAND/snark-bn254-verifier?branch=bhargav/gnark-bn254-verifier#94c2822158661845720bd91fef87ea05b1ae7dff"
 dependencies = [
  "lazy_static",
  "num-bigint",
