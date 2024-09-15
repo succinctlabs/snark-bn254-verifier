@@ -7,7 +7,7 @@ use substrate_bn::Fr;
 pub fn main() {
     let proof = sp1_zkvm::io::read_vec()[8..].to_vec();
     let vk = sp1_zkvm::io::read_vec()[8..].to_vec();
-    let vkey_hash = &sp1_zkvm::io::read_vec()[8..];
+    let vkey_hash = sp1_zkvm::io::read_vec()[8..].to_vec();
     let committed_values_digest_bytes = sp1_zkvm::io::read_vec()[8..].to_vec();
 
     let proof = proof;
@@ -16,9 +16,9 @@ pub fn main() {
     let committed_values_digest = Fr::from_slice(&committed_values_digest_bytes)
         .expect("Unable to read committed_values_digest");
 
-    println!("cycle-tracker-start: setup");
+    println!("cycle-tracker-start: verify");
     let result = PlonkVerifier::verify(&proof, &vk, &[vkey_hash, committed_values_digest]);
-    println!("cycle-tracker-end: setup");
+    println!("cycle-tracker-end: verify");
 
     match result {
         Ok(true) => {
