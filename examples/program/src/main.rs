@@ -5,6 +5,7 @@ use snark_bn254_verifier::PlonkVerifier;
 use substrate_bn::Fr;
 
 pub fn main() {
+    // Skip the first 8 bytes which contain the length of the vector as a u64
     let proof = sp1_zkvm::io::read_vec()[8..].to_vec();
     let vk = sp1_zkvm::io::read_vec()[8..].to_vec();
     let vkey_hash = sp1_zkvm::io::read_vec()[8..].to_vec();
