@@ -5,17 +5,16 @@ use snark_bn254_verifier::PlonkVerifier;
 use substrate_bn::Fr;
 
 pub fn main() {
-    // The first 8 bytes of the proof, vk, vkey_hash, and committed_values_digest_bytes are the lengths of the subsequent data.
     let proof = sp1_zkvm::io::read_vec().to_vec();
     let vk = sp1_zkvm::io::read_vec().to_vec();
     let vkey_hash = sp1_zkvm::io::read_vec().to_vec();
     let committed_values_digest_bytes = sp1_zkvm::io::read_vec().to_vec();
 
-    let (_, vk_hash) = vkey_hash.split_at(8);
-    let (_, committed_values_digest_bytes) = committed_values_digest_bytes.split_at(8);
-
-    let vkey_hash = Fr::from_slice(&vkey_hash).expect("Unable to read vkey_hash");
-    let committed_values_digest = Fr::from_slice(&committed_values_digest_bytes)
+    // The first 8 bytes of the proof, vk, vkey_hash, and committed_values_digest_bytes are the lengths of the subsequent data.
+    let proof = proof[8..].to_vec();
+    let vk = vk[8..].to_vec();
+    let vkey_hash = Fr::from_slice(&vkey_hash[8..]).expect("Unable to read vkey_hash");
+    let committed_values_digest = Fr::from_slice(&committed_values_digest_bytes[8..])
         .expect("Unable to read committed_values_digest");
 
     println!("cycle-tracker-start: verify");

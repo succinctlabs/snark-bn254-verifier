@@ -5,7 +5,8 @@ use dotenv::dotenv;
 use num_bigint::BigUint;
 use num_traits::Num;
 use sp1_sdk::{
-    proto::network::ProofMode, utils, NetworkProver, Prover, SP1ProofWithPublicValues, SP1Stdin, install::try_install_circuit_artifacts
+    install::try_install_circuit_artifacts, proto::network::ProofMode, utils, NetworkProver,
+    Prover, ProverClient, SP1ProofWithPublicValues, SP1Stdin,
 };
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
@@ -27,30 +28,38 @@ async fn main() {
     stdin.write(&n);
 
     // Initialize the network prover client using the private key from environment variables
-    let client = NetworkProver::new_from_key(&std::env::var("SP1_PRIVATE_KEY").unwrap());
+    let client = ProverClient::new();
+    let (pk, _) = client.setup(FIBONACCI_ELF);
 
     // Generate a proof for the Fibonacci program
     let proof = client
-    .prove(FIBONACCI_ELF, stdin, ProofMode::Plonk, None)
-    .await
-    .expect("Proving failed");
+        .prove(&pk, stdin)
+        .plonk()
+        .run()
+        .expect("Proving failed");
 
     // Save the generated proof to a binary file
     let proof_file = "proof.bin";
     proof.save(proof_file).unwrap();
-    
+
     // Retrieve the verification key
     let vk_dir_entry = try_install_circuit_artifacts();
     let vk_bin_path = vk_dir_entry.join("plonk_vk.bin"); // For Groth16, use "groth16_vk.bin"
 
     // Read the verification key from file
     let vk = std::fs::read(vk_bin_path).unwrap();
-    // Load the saved proof
-    let proof = SP1ProofWithPublicValues::load("proof.bin").unwrap();
+
+    // Load the saved proof and convert it to a Plonk proof
+    let proof = SP1ProofWithPublicValues::load("proof.bin")
+        .map(|sp1_proof_with_public_values| {
+            sp1_proof_with_public_values.proof.try_as_plonk().unwrap() // Use `try_as_groth_16()` for Groth16
+        })
+        .expect("Failed to load proof");
+
     // Extract the raw proof and public inputs
-    let raw_proof = hex::decode(proof.clone().proof.try_as_plonk().unwrap().raw_proof).unwrap();
-    let public_inputs = proof.proof.try_as_plonk().unwrap().public_inputs.clone();
-    
+    let raw_proof = hex::decode(proof.raw_proof).unwrap();
+    let public_inputs = proof.public_inputs;
+
     // Convert public inputs to byte representations
     let vkey_hash = BigUint::from_str_radix(&public_inputs[0], 10)
         .unwrap()
@@ -67,12 +76,13 @@ async fn main() {
     stdin.write(&committed_values_digest);
 
     // Setup the verifier program
-    let (_, vk) = client.setup(ELF);
+    let (pk, vk) = client.setup(ELF);
     // Generate a proof for the verifier program
     let proof = client
-        .prove(ELF, stdin, ProofMode::Plonk, None)
-        .await
-        .unwrap();
+        .prove(&pk, stdin)
+        .plonk()
+        .run()
+        .expect("Proving failed");
 
     // Verify the proof of the verifier program
     client.verify(&proof, &vk).expect("verification failed");
