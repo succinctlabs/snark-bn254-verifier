@@ -337,6 +337,7 @@ dependencies = [
 name = "recursive-program"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "snark-bn254-verifier",
  "sp1-zkvm",
  "substrate-bn",
