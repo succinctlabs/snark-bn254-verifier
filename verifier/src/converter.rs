@@ -55,7 +55,7 @@ pub(crate) fn compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1, Error> {
         final_y = -y;
     }
 
-    AffineG1::new(x, final_y).map_err(Error::GroupError)
+    AffineG1::new(x, final_y).map_err(Error::Group)
 }
 
 pub(crate) fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1, Error> {
@@ -65,9 +65,9 @@ pub(crate) fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1, Err
 
     let (x_bytes, y_bytes) = buf.split_at(32);
 
-    let x = Fq::from_slice(x_bytes).map_err(Error::FieldError)?;
-    let y = Fq::from_slice(y_bytes).map_err(Error::FieldError)?;
-    let p = AffineG1::new(x, y).map_err(Error::GroupError)?;
+    let x = Fq::from_slice(x_bytes).map_err(Error::Field)?;
+    let y = Fq::from_slice(y_bytes).map_err(Error::Field)?;
+    let p = AffineG1::new(x, y).map_err(Error::Group)?;
 
     Ok(p)
 }
@@ -78,7 +78,7 @@ pub(crate) fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, Error> {
     };
 
     let (x1, flag) = deserialize_with_flags(&buf[..32])?;
-    let x0 = Fq::from_be_bytes_mod_order(&buf[32..64]).map_err(Error::FieldError)?;
+    let x0 = Fq::from_be_bytes_mod_order(&buf[32..64]).map_err(Error::Field)?;
     let x = Fq2::new(x0, x1);
 
     if flag == CompressedPointFlag::Infinity {
@@ -88,8 +88,8 @@ pub(crate) fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, Error> {
     let (y, neg_y) = AffineG2::get_ys_from_x_unchecked(x).ok_or(Error::InvalidPoint)?;
 
     match flag {
-        CompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::GroupError)?),
-        CompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::GroupError)?),
+        CompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::Group)?),
+        CompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::Group)?),
         _ => Err(Error::InvalidPoint),
     }
 }

@@ -96,8 +96,8 @@ pub fn verify_plonk(
     // Compute zh_zeta = ζⁿ - 1
     let one = Fr::one();
     let n = U256::from(vk.size as u64);
-    let n = Fr::from_slice(&n.to_bytes_be())
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+    let n =
+        Fr::from_slice(&n.to_bytes_be()).map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
     let zeta_power_n = zeta.pow(n);
     let zh_zeta = zeta_power_n - one;
 
@@ -235,7 +235,7 @@ pub fn verify_plonk(
     // Compute powers of zeta
     let n_plus_two = U256::from(vk.size as u64 + 2);
     let n_plus_two = Fr::from_slice(&n_plus_two.to_bytes_be())
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+        .map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
 
     // -ζⁿ⁺²*(ζⁿ-1)
     let mut zeta_n_plus_two_zh = zeta.pow(n_plus_two);
@@ -356,7 +356,7 @@ fn derive_randomness(
 
     let b = transcript.compute_challenge(challenge)?;
     let x = Fr::from_bytes_be_mod_order(b.as_slice())
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+        .map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
     Ok(x)
 }
 

@@ -65,7 +65,7 @@ fn derive_gamma(
 
     let gamma_byte = transcript.compute_challenge(GAMMA)?;
     let x = Fr::from_bytes_be_mod_order(gamma_byte.as_slice())
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+        .map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
 
     Ok(x)
 }

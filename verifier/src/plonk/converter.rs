@@ -19,18 +19,18 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(
     let size = u64::from_be_bytes([
         buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7],
     ]) as usize;
-    let size_inv = Fr::from_slice(&buffer[8..40])
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
-    let generator = Fr::from_slice(&buffer[40..72])
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+    let size_inv =
+        Fr::from_slice(&buffer[8..40]).map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
+    let generator =
+        Fr::from_slice(&buffer[40..72]).map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
 
     let nb_public_variables = u64::from_be_bytes([
         buffer[72], buffer[73], buffer[74], buffer[75], buffer[76], buffer[77], buffer[78],
         buffer[79],
     ]) as usize;
 
-    let coset_shift = Fr::from_slice(&buffer[80..112])
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+    let coset_shift =
+        Fr::from_slice(&buffer[80..112]).map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
     let s0 = compressed_x_to_g1_point(&buffer[112..144])?;
     let s1 = compressed_x_to_g1_point(&buffer[144..176])?;
     let s2 = compressed_x_to_g1_point(&buffer[176..208])?;
@@ -133,14 +133,14 @@ pub(crate) fn load_plonk_proof_from_bytes(buffer: &[u8]) -> Result<PlonkProof, P
     let mut offset = 516;
     for _ in 0..num_claimed_values {
         let value = Fr::from_slice(&buffer[offset..offset + 32])
-            .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+            .map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
         claimed_values.push(value);
         offset += 32;
     }
 
     let z_shifted_opening_h = uncompressed_bytes_to_g1_point(&buffer[offset..offset + 64])?;
     let z_shifted_opening_value = Fr::from_slice(&buffer[offset + 64..offset + 96])
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+        .map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
 
     let num_bsb22_commitments = u32::from_be_bytes([
         buffer[offset + 96],
