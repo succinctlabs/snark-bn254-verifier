@@ -69,10 +69,10 @@ async fn main() {
 
     // Prepare input for the verifier program
     let mut stdin = SP1Stdin::new();
-    stdin.write(&raw_proof);
-    stdin.write(&vk);
-    stdin.write(&vkey_hash);
-    stdin.write(&committed_values_digest);
+    stdin.write_slice(&raw_proof);
+    stdin.write_slice(&vk);
+    stdin.write_slice(&vkey_hash);
+    stdin.write_slice(&committed_values_digest);
 
     // Setup the verifier program
     let (pk, vk) = client.setup(ELF);
