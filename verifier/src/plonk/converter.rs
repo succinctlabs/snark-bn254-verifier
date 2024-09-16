@@ -4,7 +4,7 @@ use crate::{
     },
     error::Error,
 };
-use bn::{AffineG1, AffineG2, Fq, Fq2, Fr, G2};
+use bn::{AffineG1, Fr, G2};
 
 use super::{
     error::PlonkError,

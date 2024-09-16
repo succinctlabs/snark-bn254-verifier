@@ -38,7 +38,7 @@ pub(crate) fn deserialize_with_flags(buf: &[u8]) -> Result<(Fq, CompressedPointF
 
         let x = Fq::from_be_bytes_mod_order(&x_bytes).expect("Failed to convert x bytes to Fq");
 
-        Ok((x, CompressedPointFlag::from(m_data)))
+        Ok((x, m_data.into()))
     }
 }
 
@@ -51,13 +51,11 @@ pub(crate) fn compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1, Error> {
         if m_data == CompressedPointFlag::Positive {
             final_y = -y;
         }
-    } else {
-        if m_data == CompressedPointFlag::Negative {
-            final_y = -y;
-        }
+    } else if m_data == CompressedPointFlag::Negative {
+        final_y = -y;
     }
 
-    Ok(AffineG1::new(x, final_y).map_err(|e| Error::GroupError(e))?)
+    AffineG1::new(x, final_y).map_err(Error::GroupError)
 }
 
 pub(crate) fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1, Error> {
@@ -67,9 +65,9 @@ pub(crate) fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1, Err
 
     let (x_bytes, y_bytes) = buf.split_at(32);
 
-    let x = Fq::from_slice(x_bytes).map_err(|e| Error::FieldError(e))?;
-    let y = Fq::from_slice(y_bytes).map_err(|e| Error::FieldError(e))?;
-    let p = AffineG1::new(x, y).map_err(|e| Error::GroupError(e))?;
+    let x = Fq::from_slice(x_bytes).map_err(Error::FieldError)?;
+    let y = Fq::from_slice(y_bytes).map_err(Error::FieldError)?;
+    let p = AffineG1::new(x, y).map_err(Error::GroupError)?;
 
     Ok(p)
 }
@@ -80,7 +78,7 @@ pub(crate) fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, Error> {
     };
 
     let (x1, flag) = deserialize_with_flags(&buf[..32])?;
-    let x0 = Fq::from_be_bytes_mod_order(&buf[32..64]).map_err(|e| Error::FieldError(e))?;
+    let x0 = Fq::from_be_bytes_mod_order(&buf[32..64]).map_err(Error::FieldError)?;
     let x = Fq2::new(x0, x1);
 
     if flag == CompressedPointFlag::Infinity {
@@ -90,10 +88,8 @@ pub(crate) fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, Error> {
     let (y, neg_y) = AffineG2::get_ys_from_x_unchecked(x).ok_or(Error::InvalidPoint)?;
 
     match flag {
-        CompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(|e| Error::GroupError(e))?),
-        CompressedPointFlag::Negative => {
-            Ok(AffineG2::new(x, neg_y).map_err(|e| Error::GroupError(e))?)
-        }
+        CompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::GroupError)?),
+        CompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::GroupError)?),
         _ => Err(Error::InvalidPoint),
     }
 }

@@ -82,7 +82,7 @@ pub fn verify_plonk(
     let beta = derive_randomness(&mut fs, BETA, None)?;
 
     // Derive alpha challenge: α
-    let mut alpha_deps: Vec<AffineG1> = proof.bsb22_commitments.iter().cloned().collect();
+    let mut alpha_deps: Vec<AffineG1> = proof.bsb22_commitments.to_vec();
     alpha_deps.push(proof.z);
     let alpha = derive_randomness(&mut fs, ALPHA, Some(alpha_deps))?;
 
@@ -102,9 +102,7 @@ pub fn verify_plonk(
     let zh_zeta = zeta_power_n - one;
 
     // Compute Lagrange polynomial at ζ: L₁(ζ) = (ζⁿ - 1) / (n * (ζ - 1))
-    let mut lagrange_one = (zeta - one)
-        .inverse()
-        .expect(&Error::InverseNotFound.to_string());
+    let mut lagrange_one = (zeta - one).inverse().ok_or(Error::InverseNotFound)?;
     lagrange_one *= zh_zeta;
     lagrange_one *= vk.size_inv;
 
@@ -149,7 +147,7 @@ pub fn verify_plonk(
 
         let exponent =
             U256::from((vk.nb_public_variables + vk.commitment_constraint_indexes[i]) as u64);
-        let exponent = Fr::new(exponent).ok_or_else(|| Error::BeyondTheModulus)?;
+        let exponent = Fr::new(exponent).ok_or(Error::BeyondTheModulus)?;
         let w_pow_i = vk.generator.pow(exponent);
         let mut den = zeta;
         den -= w_pow_i;
@@ -304,7 +302,7 @@ pub fn verify_plonk(
 
     let shifted_zeta = zeta * vk.generator;
 
-    let folded_digest: AffineG1 = folded_digest.into();
+    let folded_digest: AffineG1 = folded_digest;
 
     // Perform batch verification
     kzg::batch_verify_multi_points(
@@ -357,7 +355,7 @@ fn derive_randomness(
     }
 
     let b = transcript.compute_challenge(challenge)?;
-    let x = Fr::from_bytes_be_mod_order(&b.as_slice())
+    let x = Fr::from_bytes_be_mod_order(b.as_slice())
         .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
     Ok(x)
 }

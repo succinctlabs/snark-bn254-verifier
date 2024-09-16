@@ -57,7 +57,7 @@ impl Transcript {
             .get_mut(id)
             .ok_or(Error::ChallengeNotFound)?;
         if current_challenge.is_computed {
-            return Err(Error::ChallengeAlreadyComputed.into());
+            return Err(Error::ChallengeAlreadyComputed);
         }
 
         current_challenge.bindings.push(binding.to_vec());
@@ -83,11 +83,11 @@ impl Transcript {
         if challenge.position != 0 {
             if let Some(previous_challenge) = &self.previous_challenge {
                 if previous_challenge.position != challenge.position - 1 {
-                    return Err(Error::PreviousChallengeNotComputed.into());
+                    return Err(Error::PreviousChallengeNotComputed);
                 }
                 self.h.update(&previous_challenge.value)
             } else {
-                return Err(Error::PreviousChallengeNotComputed.into());
+                return Err(Error::PreviousChallengeNotComputed);
             }
         }
 

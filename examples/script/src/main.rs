@@ -5,8 +5,7 @@ use dotenv::dotenv;
 use num_bigint::BigUint;
 use num_traits::Num;
 use sp1_sdk::{
-    install::try_install_circuit_artifacts, proto::network::ProofMode, utils, NetworkProver,
-    Prover, ProverClient, SP1ProofWithPublicValues, SP1Stdin,
+    install::try_install_circuit_artifacts, utils, ProverClient, SP1ProofWithPublicValues, SP1Stdin,
 };
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.

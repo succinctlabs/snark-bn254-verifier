@@ -78,10 +78,10 @@ pub fn verify_groth16(
     let qap = pairing_batch(&[
         (proof.ar.into(), proof.bs.into()),
         (
-            prepare_inputs(pvk.clone(), public_inputs)?.into(),
-            pvk.gamma_g2_neg_pc.clone(),
+            prepare_inputs(pvk.clone(), public_inputs)?,
+            pvk.gamma_g2_neg_pc,
         ),
-        (proof.krs.into(), pvk.delta_g2_neg_pc.clone()),
+        (proof.krs.into(), pvk.delta_g2_neg_pc),
     ]);
 
     let exp = qap

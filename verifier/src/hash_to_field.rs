@@ -57,18 +57,18 @@ impl WrappedHashToField {
         h.reset();
 
         // b_0 = H(msg_prime)
-        h.update(&[0u8; 64]); // Assuming the block size is 64 bytes for SHA-256
+        h.update([0u8; 64]); // Assuming the block size is 64 bytes for SHA-256
         h.update(&msg);
-        h.update(&[(len >> 8) as u8, len as u8, 0]);
+        h.update([(len >> 8) as u8, len as u8, 0]);
         h.update(&dst);
-        h.update(&[size_domain as u8]);
+        h.update([size_domain as u8]);
         let b0 = h.finalize_reset();
 
         // b_1 = H(b_0 || I2OSP(1, 1) || DST_prime)
-        h.update(&b0);
-        h.update(&[1]); // I2OSP(1, 1)
+        h.update(b0);
+        h.update([1]); // I2OSP(1, 1)
         h.update(&dst);
-        h.update(&[size_domain as u8]);
+        h.update([size_domain as u8]);
         let mut b1 = h.finalize_reset();
 
         let mut res = vec![0u8; len];
@@ -81,9 +81,9 @@ impl WrappedHashToField {
                 strxor[j] = b0_byte ^ b1_byte;
             }
             h.update(&strxor);
-            h.update(&[i as u8]);
+            h.update([i as u8]);
             h.update(&dst);
-            h.update(&[size_domain as u8]);
+            h.update([size_domain as u8]);
             b1 = h.finalize_reset();
 
             let start = 32 * (i - 1);

@@ -2,6 +2,7 @@ use bn::{CurveError, FieldError, GroupError};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Error {
     // Cryptographic Errors
     #[error("BSB22 Commitment number mismatch")]
@@ -50,14 +51,10 @@ pub enum Error {
     FailedToGetY,
 
     // External Library Errors
-    #[error("Field Error")]
+    #[error("BN254 Field Error")]
     FieldError(FieldError),
-    #[error("Group Error")]
+    #[error("BN254 Group Error")]
     GroupError(GroupError),
-    #[error("Curve Error")]
+    #[error("BN254 Curve Error")]
     CurveError(CurveError),
-
-    // Serialization Errors
-    #[error("Serialization Error")]
-    SerializationError,
 }
