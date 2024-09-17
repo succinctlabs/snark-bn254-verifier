@@ -1,7 +1,4 @@
 //! A simple script to generate and verify the proof of a given program.
-extern crate dotenv;
-
-use dotenv::dotenv;
 use num_bigint::BigUint;
 use num_traits::Num;
 use sp1_sdk::{
@@ -12,10 +9,7 @@ use sp1_sdk::{
 pub const FIBONACCI_ELF: &[u8] = include_bytes!("../../fibonacci-riscv32im-succinct-zkvm-elf");
 pub const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
 
-#[tokio::main]
-async fn main() {
-    // Load environment variables from .env file
-    dotenv().ok();
+fn main() {
     // Setup logging for the application
     utils::setup_logger();
 
@@ -26,7 +20,7 @@ async fn main() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&n);
 
-    // Initialize the network prover client using the private key from environment variables
+    // Initialize the prover client
     let client = ProverClient::new();
     let (pk, _) = client.setup(FIBONACCI_ELF);
 
