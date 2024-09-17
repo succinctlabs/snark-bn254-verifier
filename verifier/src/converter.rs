@@ -67,9 +67,7 @@ pub(crate) fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1, Err
 
     let x = Fq::from_slice(x_bytes).map_err(Error::Field)?;
     let y = Fq::from_slice(y_bytes).map_err(Error::Field)?;
-    let p = AffineG1::new(x, y).map_err(Error::Group)?;
-
-    Ok(p)
+    AffineG1::new(x, y).map_err(Error::Group)
 }
 
 pub(crate) fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, Error> {
