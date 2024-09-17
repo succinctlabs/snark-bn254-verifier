@@ -64,8 +64,8 @@ fn derive_gamma(
     }
 
     let gamma_byte = transcript.compute_challenge(GAMMA)?;
-    let x = Fr::from_bytes_be_mod_order(&gamma_byte.as_slice())
-        .map_err(|e| PlonkError::GeneralError(Error::FieldError(e)))?;
+    let x = Fr::from_bytes_be_mod_order(gamma_byte.as_slice())
+        .map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
 
     Ok(x)
 }
@@ -154,15 +154,15 @@ pub(crate) fn batch_verify_multi_points(
     }
 
     let mut quotients = Vec::with_capacity(nb_proofs);
-    for i in 0..random_numbers.len() {
-        quotients.push(proofs[i].h);
+    for item in proofs.iter().take(nb_digests) {
+        quotients.push(item.h);
     }
 
     let mut folded_quotients = AffineG1::msm(&quotients, &random_numbers);
     let mut evals = Vec::with_capacity(nb_digests);
 
-    for i in 0..nb_digests {
-        evals.push(proofs[i].claimed_value);
+    for item in proofs.iter().take(nb_digests) {
+        evals.push(item.claimed_value);
     }
 
     let (mut folded_digests, folded_evals) = fold(digests, evals, random_numbers.clone())?;
@@ -170,7 +170,7 @@ pub(crate) fn batch_verify_multi_points(
     folded_digests = folded_digests - folded_evals_commit.into();
 
     for i in 0..random_numbers.len() {
-        random_numbers[i] = random_numbers[i] * points[i];
+        random_numbers[i] *= points[i];
     }
     let folded_points_quotients = AffineG1::msm(&quotients, &random_numbers);
 

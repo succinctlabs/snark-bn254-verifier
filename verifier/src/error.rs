@@ -50,14 +50,10 @@ pub enum Error {
     FailedToGetY,
 
     // External Library Errors
-    #[error("Field Error")]
-    FieldError(FieldError),
-    #[error("Group Error")]
-    GroupError(GroupError),
-    #[error("Curve Error")]
-    CurveError(CurveError),
-
-    // Serialization Errors
-    #[error("Serialization Error")]
-    SerializationError,
+    #[error("BN254 Field Error")]
+    Field(FieldError),
+    #[error("BN254 Group Error")]
+    Group(GroupError),
+    #[error("BN254 Curve Error")]
+    Curve(CurveError),
 }

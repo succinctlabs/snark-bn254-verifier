@@ -15,19 +15,19 @@ pub enum CompressedPointFlag {
     Infinity = COMPRESSED_INFINITY as isize,
 }
 
-impl Into<u8> for CompressedPointFlag {
-    fn into(self) -> u8 {
-        self as u8
-    }
-}
-
 impl From<u8> for CompressedPointFlag {
-    fn from(value: u8) -> Self {
-        match value {
+    fn from(val: u8) -> Self {
+        match val {
             COMPRESSED_POSTIVE => CompressedPointFlag::Positive,
             COMPRESSED_NEGATIVE => CompressedPointFlag::Negative,
             COMPRESSED_INFINITY => CompressedPointFlag::Infinity,
             _ => panic!("Invalid compressed point flag"),
         }
+    }
+}
+
+impl From<CompressedPointFlag> for u8 {
+    fn from(value: CompressedPointFlag) -> Self {
+        value as u8
     }
 }
