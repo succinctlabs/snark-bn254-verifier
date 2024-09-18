@@ -1,16 +1,19 @@
 use bn::AffineG1;
 
 use crate::{
-    converter::{compressed_x_to_g1_point, compressed_x_to_g2_point},
+    converter::{
+        compressed_x_to_g1_point, compressed_x_to_g2_point, uncompressed_bytes_to_g1_point,
+        uncompressed_bytes_to_g2_point,
+    },
     groth16::{Groth16G1, Groth16G2, Groth16Proof, Groth16VerifyingKey, PedersenVerifyingKey},
 };
 
 use super::error::Groth16Error;
 
 pub(crate) fn load_groth16_proof_from_bytes(buffer: &[u8]) -> Result<Groth16Proof, Groth16Error> {
-    let ar = compressed_x_to_g1_point(&buffer[..32])?;
-    let bs = compressed_x_to_g2_point(&buffer[32..96])?;
-    let krs = compressed_x_to_g1_point(&buffer[96..128])?;
+    let ar = uncompressed_bytes_to_g1_point(&buffer[..64])?;
+    let bs = uncompressed_bytes_to_g2_point(&buffer[64..192])?;
+    let krs = uncompressed_bytes_to_g1_point(&buffer[192..256])?;
 
     Ok(Groth16Proof {
         ar,
@@ -67,13 +70,13 @@ pub(crate) fn load_groth16_verifying_key_from_bytes(
     Ok(Groth16VerifyingKey {
         g1: Groth16G1 {
             alpha: g1_alpha,
-            beta: g1_beta,
+            beta: -g1_beta,
             delta: g1_delta,
             k,
         },
         g2: Groth16G2 {
-            beta: g2_beta,
-            gamma: g2_gamma,
+            beta: -g2_beta,
+            gamma: -g2_gamma,
             delta: g2_delta,
         },
         commitment_key: PedersenVerifyingKey {

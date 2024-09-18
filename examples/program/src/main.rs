@@ -1,7 +1,7 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use snark_bn254_verifier::PlonkVerifier;
+use snark_bn254_verifier::Groth16Verifier;
 use substrate_bn::Fr;
 
 pub fn main() {
@@ -15,7 +15,7 @@ pub fn main() {
         Fr::from_slice(&committed_values_digest).expect("Unable to read committed_values_digest");
 
     println!("cycle-tracker-start: verify");
-    let result = PlonkVerifier::verify(&proof, &vk, &[vkey_hash, committed_values_digest]);
+    let result = Groth16Verifier::verify(&proof, &vk, &[vkey_hash, committed_values_digest]);
     println!("cycle-tracker-end: verify");
 
     match result {

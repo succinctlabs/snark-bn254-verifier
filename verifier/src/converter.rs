@@ -91,3 +91,23 @@ pub(crate) fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, Error> {
         _ => Err(Error::InvalidPoint),
     }
 }
+
+pub(crate) fn uncompressed_bytes_to_g2_point(buf: &[u8]) -> Result<AffineG2, Error> {
+    if buf.len() != 128 {
+        return Err(Error::InvalidXLength);
+    }
+
+    let (x_bytes, y_bytes) = buf.split_at(64);
+    let (x1_bytes, x0_bytes) = x_bytes.split_at(32);
+    let (y1_bytes, y0_bytes) = y_bytes.split_at(32);
+
+    let x1 = Fq::from_slice(x1_bytes).map_err(Error::Field)?;
+    let x0 = Fq::from_slice(x0_bytes).map_err(Error::Field)?;
+    let y1 = Fq::from_slice(y1_bytes).map_err(Error::Field)?;
+    let y0 = Fq::from_slice(y0_bytes).map_err(Error::Field)?;
+
+    let x = Fq2::new(x0, x1);
+    let y = Fq2::new(y0, y1);
+
+    AffineG2::new(x, y).map_err(Error::Group)
+}

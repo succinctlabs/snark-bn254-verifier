@@ -75,18 +75,11 @@ pub fn verify_groth16(
     public_inputs: &[Fr],
 ) -> Result<bool, Groth16Error> {
     let pvk = process_vk(vk)?;
-    let qap = pairing_batch(&[
+    let prepared_inputs = prepare_inputs(pvk.clone(), public_inputs)?;
+
+    Ok(pairing_batch(&[
         (proof.ar.into(), proof.bs.into()),
-        (
-            prepare_inputs(pvk.clone(), public_inputs)?,
-            pvk.gamma_g2_neg_pc,
-        ),
+        (prepared_inputs, pvk.gamma_g2_neg_pc),
         (proof.krs.into(), pvk.delta_g2_neg_pc),
-    ]);
-
-    let exp = qap
-        .final_exponentiation()
-        .ok_or(Groth16Error::UnexpectedIdentity)?;
-
-    Ok(exp == pvk.alpha_g1_beta_g2)
+    ]) == pvk.alpha_g1_beta_g2)
 }
