@@ -35,13 +35,6 @@ fn main() {
     let proof_file = "groth16_proof.bin";
     proof.save(proof_file).unwrap();
 
-    // Retrieve the verification key
-    let vk_dir_entry = try_install_circuit_artifacts();
-    let vk_bin_path = vk_dir_entry.join("groth16_vk.bin"); // For Groth16, use "groth16_vk.bin"
-
-    // Read the verification key from file
-    let vk = std::fs::read(vk_bin_path).unwrap();
-
     // Load the saved proof and convert it to a Groth16 proof
     let proof = SP1ProofWithPublicValues::load("groth16_proof.bin")
         .map(|sp1_proof_with_public_values| {
@@ -67,7 +60,6 @@ fn main() {
     // Prepare input for the verifier program
     let mut stdin = SP1Stdin::new();
     stdin.write_slice(&raw_proof);
-    stdin.write_slice(&vk);
     stdin.write_slice(&vkey_hash);
     stdin.write_slice(&committed_values_digest);
 

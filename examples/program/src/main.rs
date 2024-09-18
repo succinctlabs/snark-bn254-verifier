@@ -4,12 +4,14 @@ sp1_zkvm::entrypoint!(main);
 use snark_bn254_verifier::Groth16Verifier;
 use substrate_bn::Fr;
 
+const GROTH16_VK_BYTES: &[u8] = include_bytes!("../../../../.sp1/circuits/v2.0.0/groth16_vk.bin"); // Replace with the `plonk_vk.bin` path for Plonk
+
 pub fn main() {
     let proof = sp1_zkvm::io::read_vec();
-    let vk = sp1_zkvm::io::read_vec();
     let vkey_hash = sp1_zkvm::io::read_vec();
     let committed_values_digest = sp1_zkvm::io::read_vec();
 
+    let vk = GROTH16_VK_BYTES;
     let vkey_hash = Fr::from_slice(&vkey_hash).expect("Unable to read vkey_hash");
     let committed_values_digest =
         Fr::from_slice(&committed_values_digest).expect("Unable to read committed_values_digest");
@@ -23,7 +25,7 @@ pub fn main() {
             println!("Proof is valid");
         }
         Ok(false) | Err(_) => {
-            println!("Proof is invalid");
+            println!("Proof is invalictd");
             panic!();
         }
     }
