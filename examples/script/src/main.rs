@@ -32,7 +32,7 @@ fn main() {
         .expect("Proving failed");
 
     // Save the generated proof to a binary file
-    let proof_file = "proof.bin";
+    let proof_file = "groth16_proof.bin";
     proof.save(proof_file).unwrap();
 
     // Retrieve the verification key
@@ -43,7 +43,7 @@ fn main() {
     let vk = std::fs::read(vk_bin_path).unwrap();
 
     // Load the saved proof and convert it to a Groth16 proof
-    let proof = SP1ProofWithPublicValues::load("proof.bin")
+    let proof = SP1ProofWithPublicValues::load("groth16_proof.bin")
         .map(|sp1_proof_with_public_values| {
             sp1_proof_with_public_values
                 .proof
@@ -145,6 +145,7 @@ mod tests {
                 }
             }
         }
+
         // Plonk
         {
             let vk_bin_path = vk_dir_entry.join("plonk_vk.bin"); // For Plonk, use "plonk_vk.bin"
@@ -186,7 +187,7 @@ mod tests {
                     println!("Plonk Proof is invalid");
                     panic!();
                 }
-          }
+            }
         }
     }
 }
