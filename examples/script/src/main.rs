@@ -27,7 +27,7 @@ fn main() {
     // Generate a proof for the Fibonacci program
     let proof = client
         .prove(&pk, stdin)
-        .plonk()
+        .groth16()
         .run()
         .expect("Proving failed");
 
@@ -37,15 +37,18 @@ fn main() {
 
     // Retrieve the verification key
     let vk_dir_entry = try_install_circuit_artifacts();
-    let vk_bin_path = vk_dir_entry.join("plonk_vk.bin"); // For Groth16, use "groth16_vk.bin"
+    let vk_bin_path = vk_dir_entry.join("groth16_vk.bin"); // For Groth16, use "groth16_vk.bin"
 
     // Read the verification key from file
     let vk = std::fs::read(vk_bin_path).unwrap();
 
-    // Load the saved proof and convert it to a Plonk proof
+    // Load the saved proof and convert it to a Groth16 proof
     let proof = SP1ProofWithPublicValues::load("proof.bin")
         .map(|sp1_proof_with_public_values| {
-            sp1_proof_with_public_values.proof.try_as_plonk().unwrap() // Use `try_as_groth_16()` for Groth16
+            sp1_proof_with_public_values
+                .proof
+                .try_as_groth_16()
+                .unwrap() // Use `try_as_groth_16()` for Groth16
         })
         .expect("Failed to load proof");
 
@@ -73,7 +76,7 @@ fn main() {
     // Generate a proof for the verifier program
     let proof = client
         .prove(&pk, stdin)
-        .plonk()
+        .groth16()
         .run()
         .expect("Proving failed");
 
