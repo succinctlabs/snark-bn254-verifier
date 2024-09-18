@@ -186,7 +186,7 @@ mod tests {
                     println!("Plonk Proof is invalid");
                     panic!();
                 }
-            }
+          }
         }
     }
 }
