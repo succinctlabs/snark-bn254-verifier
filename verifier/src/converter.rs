@@ -58,6 +58,22 @@ pub(crate) fn compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1, Error> {
     AffineG1::new(x, final_y).map_err(Error::Group)
 }
 
+pub(crate) fn trusted_compressed_x_to_g1_point(buf: &[u8]) -> Result<AffineG1, Error> {
+    let (x, m_data) = deserialize_with_flags(buf)?;
+    let (y, neg_y) = AffineG1::get_ys_from_x_unchecked(x).ok_or(Error::InvalidPoint)?;
+
+    let mut final_y = y;
+    if y.cmp(&neg_y) == Ordering::Greater {
+        if m_data == CompressedPointFlag::Positive {
+            final_y = -y;
+        }
+    } else if m_data == CompressedPointFlag::Negative {
+        final_y = -y;
+    }
+
+    Ok(AffineG1::new_unchecked(x, final_y))
+}
+
 pub(crate) fn uncompressed_bytes_to_g1_point(buf: &[u8]) -> Result<AffineG1, Error> {
     if buf.len() != 64 {
         return Err(Error::InvalidXLength);
@@ -88,6 +104,28 @@ pub(crate) fn compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, Error> {
     match flag {
         CompressedPointFlag::Positive => Ok(AffineG2::new(x, y).map_err(Error::Group)?),
         CompressedPointFlag::Negative => Ok(AffineG2::new(x, neg_y).map_err(Error::Group)?),
+        _ => Err(Error::InvalidPoint),
+    }
+}
+
+pub(crate) fn trusted_compressed_x_to_g2_point(buf: &[u8]) -> Result<AffineG2, Error> {
+    if buf.len() != 64 {
+        return Err(Error::InvalidXLength);
+    };
+
+    let (x1, flag) = deserialize_with_flags(&buf[..32])?;
+    let x0 = Fq::from_be_bytes_mod_order(&buf[32..64]).map_err(Error::Field)?;
+    let x = Fq2::new(x0, x1);
+
+    if flag == CompressedPointFlag::Infinity {
+        return Ok(AffineG2::one());
+    }
+
+    let (y, neg_y) = AffineG2::get_ys_from_x_unchecked(x).ok_or(Error::InvalidPoint)?;
+
+    match flag {
+        CompressedPointFlag::Positive => Ok(AffineG2::new_unchecked(x, y)),
+        CompressedPointFlag::Negative => Ok(AffineG2::new_unchecked(x, neg_y)),
         _ => Err(Error::InvalidPoint),
     }
 }

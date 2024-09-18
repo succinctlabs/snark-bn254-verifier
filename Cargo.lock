@@ -428,7 +428,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "substrate-bn"
 version = "0.7.0"
-source = "git+https://github.com/sp1-patches/bn?branch=patch-v0.7.0#7f4353ca70b07901b9e6a26bf0e7dd258234e5b4"
+source = "git+https://github.com/sp1-patches/bn?branch=patch-v0.7.0#2f5d4394b28550e47b16b061372832cba6d2dcf6"
 dependencies = [
  "bytemuck",
  "byteorder",
