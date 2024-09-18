@@ -82,3 +82,57 @@ fn main() {
 
     println!("Successfully verified proof for the program!")
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    use snark_bn254_verifier::PlonkVerifier;
+    use substrate_bn::Fr;
+
+    #[test]
+    fn test_fibonacci() {
+        // Retrieve the verification key
+        let vk_dir_entry = try_install_circuit_artifacts();
+        let vk_bin_path = vk_dir_entry.join("plonk_vk.bin"); // For Groth16, use "groth16_vk.bin"
+
+        // Read the verification key from file
+        let vk = std::fs::read(vk_bin_path).unwrap();
+
+        // Load the saved proof and convert it to a Plonk proof
+        let proof = SP1ProofWithPublicValues::load("proof.bin")
+            .map(|sp1_proof_with_public_values| {
+                sp1_proof_with_public_values.proof.try_as_plonk().unwrap() // Use `try_as_groth_16()` for Groth16
+            })
+            .expect("Failed to load proof");
+
+        // Extract the raw proof and public inputs
+        let raw_proof = hex::decode(proof.raw_proof).unwrap();
+        let public_inputs = proof.public_inputs;
+
+        // Convert public inputs to byte representations
+        let vkey_hash = BigUint::from_str_radix(&public_inputs[0], 10)
+            .unwrap()
+            .to_bytes_be();
+        let committed_values_digest = BigUint::from_str_radix(&public_inputs[1], 10)
+            .unwrap()
+            .to_bytes_be();
+
+        let vkey_hash = Fr::from_slice(&vkey_hash).expect("Unable to read vkey_hash");
+        let committed_values_digest = Fr::from_slice(&committed_values_digest)
+            .expect("Unable to read committed_values_digest");
+
+        let result = PlonkVerifier::verify(&raw_proof, &vk, &[vkey_hash, committed_values_digest]);
+
+        match result {
+            Ok(true) => {
+                println!("Proof is valid");
+            }
+            Ok(false) | Err(_) => {
+                println!("Proof is invalid");
+                panic!();
+            }
+        }
+    }
+}

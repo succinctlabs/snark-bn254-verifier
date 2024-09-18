@@ -688,6 +688,20 @@ name = "bytemuck"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94bbb0ad554ad961ddc5da507a12a29b14e4ae5bda06b19f575a3e6079d2e2ae"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cc8b54b395f2fcfbb3d90c47b01c7f444d94d05bdeb775811dec868ac3bbc26"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.77",
+]
 
 [[package]]
 name = "byteorder"
@@ -3807,9 +3821,11 @@ dependencies = [
  "hex",
  "num-bigint 0.4.6",
  "num-traits",
+ "snark-bn254-verifier",
  "sp1-helper",
  "sp1-prover",
  "sp1-sdk",
+ "substrate-bn",
 ]
 
 [[package]]
@@ -4586,6 +4602,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
+name = "snark-bn254-verifier"
+version = "1.0.2"
+dependencies = [
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "num-traits",
+ "rand",
+ "sha2",
+ "substrate-bn",
+ "thiserror",
+]
+
+[[package]]
 name = "snowbridge-amcl"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4761,6 +4790,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f08124c62d09764810783355cff518477e3f36c8e83343623859afeca6f3eeb"
 dependencies = [
  "sp1-build",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bea7811abd2d3a991007fcb284f41152840b8388c171288d0c52c6793956609c"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "hex",
+ "serde",
+ "snowbridge-amcl",
 ]
 
 [[package]]
@@ -5167,6 +5210,22 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 2.0.77",
+]
+
+[[package]]
+name = "substrate-bn"
+version = "0.7.0"
+source = "git+https://github.com/sp1-patches/bn?branch=patch-v0.7.0#7f4353ca70b07901b9e6a26bf0e7dd258234e5b4"
+dependencies = [
+ "bytemuck",
+ "byteorder",
+ "cfg-if",
+ "crunchy",
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "rand",
+ "rustc-hex",
+ "sp1-lib",
 ]
 
 [[package]]
