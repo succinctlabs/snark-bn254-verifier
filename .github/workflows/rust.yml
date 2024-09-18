@@ -13,6 +13,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install SP1 toolchain
+      run: |
+        curl -L https://sp1.succinct.xyz | bash
+        ~/.sp1/bin/sp1up 
+        ~/.sp1/bin/cargo-prove prove --version
     - name: Build
       run: cargo build --verbose
     - name: Run tests
