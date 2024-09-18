@@ -76,7 +76,7 @@ pub(crate) fn load_groth16_verifying_key_from_bytes(
         },
         g2: Groth16G2 {
             beta: -g2_beta,
-            gamma: -g2_gamma,
+            gamma: g2_gamma,
             delta: g2_delta,
         },
         commitment_key: PedersenVerifyingKey {
