@@ -1,16 +1,14 @@
 use clap::Parser;
-use dotenv::dotenv;
 use num_bigint::BigUint;
 use num_traits::Num;
-use sp1_sdk::{
-    proto::network::ProofMode, utils, NetworkProver, Prover, SP1ProofWithPublicValues, SP1Stdin,
-};
+use sp1_sdk::{proto::network::ProofMode, utils, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_bytes!("../../elfs/fibonacci-riscv32im-succinct-zkvm-elf");
 pub const ISPRIME_ELF: &[u8] = include_bytes!("../../elfs/isprime-riscv32im-succinct-zkvm-elf");
 pub const SHA2_ELF: &[u8] = include_bytes!("../../elfs/sha2-riscv32im-succinct-zkvm-elf");
-pub const TENDERMINT_ELF: &[u8] = include_bytes!("../../elfs/tendermint-riscv32im-succinct-zkvm-elf");
+pub const TENDERMINT_ELF: &[u8] =
+    include_bytes!("../../elfs/tendermint-riscv32im-succinct-zkvm-elf");
 
 pub const PLONK_ELF: &[u8] = include_bytes!("../../program/elf/plonk");
 pub const GROTH16_ELF: &[u8] = include_bytes!("../../program/elf/groth16");
@@ -35,11 +33,7 @@ struct Cli {
     mode: String,
 }
 
-#[tokio::main]
-async fn main() {
-    // Load the environment variables.
-    dotenv().ok();
-
+fn main() {
     // Setup logging for the application
     utils::setup_logger();
 
@@ -69,14 +63,27 @@ async fn main() {
         _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
     };
 
-    // Save the generated proof to a binary file
-    let proof_file = format!("../binaries/{}_{}_proof.bin", args.elf, args.mode);
-
     // Initialize the prover client
-    let client = NetworkProver::new_from_key(&std::env::var("SP1_PRIVATE_KEY").unwrap());
+    let client = ProverClient::new();
+    let (pk, _) = client.setup(elf);
 
     // Generate a proof for the specified program
-    let proof = client.prove(elf, stdin, mode, None).await.unwrap();
+    let proof = match mode {
+        ProofMode::Groth16 => client
+            .prove(&pk, stdin)
+            .groth16()
+            .run()
+            .expect("Groth16 proof generation failed"),
+        ProofMode::Plonk => client
+            .prove(&pk, stdin)
+            .plonk()
+            .run()
+            .expect("Plonk proof generation failed"),
+        _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
+    };
+
+    // Save the generated proof to a binary file
+    let proof_file = format!("../binaries/{}_{}_proof.bin", args.elf, args.mode);
     proof.save(&proof_file).unwrap();
 
     // Load the saved proof and convert it to a Groth16 proof
@@ -114,10 +121,19 @@ async fn main() {
     // Setup the verifier program
     let (_, vk) = client.setup(proof_elf);
     // Generate a proof for the verifier program
-    let proof = client
-        .prove(proof_elf, stdin, mode, None)
-        .await
-        .expect("Proving failed");
+    let proof = match mode {
+        ProofMode::Groth16 => client
+            .prove(&pk, stdin)
+            .groth16()
+            .run()
+            .expect("Groth16 proof generation failed"),
+        ProofMode::Plonk => client
+            .prove(&pk, stdin)
+            .plonk()
+            .run()
+            .expect("Plonk proof generation failed"),
+        _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
+    };
 
     // Verify the proof of the verifier program
     client.verify(&proof, &vk).expect("verification failed");
@@ -134,7 +150,8 @@ mod tests {
     use substrate_bn::Fr;
 
     const PLONK_VK_BYTES: &[u8] = include_bytes!("../../../../.sp1/circuits/v2.0.0/plonk_vk.bin");
-    const GROTH16_VK_BYTES: &[u8] = include_bytes!("../../../../.sp1/circuits/v2.0.0/groth16_vk.bin");
+    const GROTH16_VK_BYTES: &[u8] =
+        include_bytes!("../../../../.sp1/circuits/v2.0.0/groth16_vk.bin");
 
     #[test]
     fn test_programs() {
