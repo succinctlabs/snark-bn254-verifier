@@ -2,6 +2,9 @@ use clap::Parser;
 use num_bigint::BigUint;
 use num_traits::Num;
 use sp1_sdk::{proto::network::ProofMode, utils, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
+use strum::IntoEnumIterator;
+use strum_macros::{Display, EnumIter, EnumString};
+use std::str::FromStr;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_bytes!("../../elfs/fibonacci-riscv32im-succinct-zkvm-elf");
@@ -33,6 +36,29 @@ struct Cli {
     mode: String,
 }
 
+#[derive(Debug, EnumString, EnumIter, Display)]
+enum Elf {
+    #[strum(serialize = "fibonacci")]
+    Fibonacci,
+    #[strum(serialize = "is-prime")]
+    IsPrime,
+    #[strum(serialize = "sha2")]
+    Sha2,
+    #[strum(serialize = "tendermint")]
+    Tendermint,
+}
+
+impl Elf {
+    fn get_elf(&self) -> &'static [u8] {
+        match self {
+            Elf::Fibonacci => FIBONACCI_ELF,
+            Elf::IsPrime => ISPRIME_ELF,
+            Elf::Sha2 => SHA2_ELF,
+            Elf::Tendermint => TENDERMINT_ELF,
+        }
+    }
+}
+
 fn main() {
     // Setup logging for the application
     utils::setup_logger();
@@ -41,20 +67,20 @@ fn main() {
     let args = Cli::parse();
     let mut stdin = SP1Stdin::new();
 
-    let elf = match args.elf.as_str() {
-        "fibonacci" => {
+    let elf_enum = Elf::from_str(&args.elf)
+        .expect("Invalid ELF name. Use 'fibonacci', 'is-prime', or other valid ELF names.");
+    let elf = match elf_enum {
+        Elf::Fibonacci => {
             let n = 20;
             stdin.write(&n);
-            FIBONACCI_ELF
+            elf_enum.get_elf()
         }
-        "is-prime" => {
+        Elf::IsPrime => {
             let n = 11u64;
             stdin.write(&n);
-            ISPRIME_ELF
+            elf_enum.get_elf()
         }
-        "sha2" => SHA2_ELF,
-        "tendermint" => TENDERMINT_ELF,
-        _ => panic!("Invalid ELF name. Use 'fibonacci', 'is-prime', or other valid ELF names."),
+        Elf::Sha2 | Elf::Tendermint => elf_enum.get_elf(),
     };
 
     let (mode, proof_elf) = match args.mode.as_str() {
@@ -203,16 +229,18 @@ mod tests {
             }
         }
 
-        ["fibonacci", "is-prime", "sha2", "tendermint"]
-            .iter()
-            .for_each(|program| {
-                // Verify Plonk proof
-                let proof_file = format!("../binaries/{}_{}_proof.bin", program, "plonk");
-                verify_proof(&proof_file, PLONK_VK_BYTES, ProofMode::Plonk);
+        Elf::iter().for_each(|program| {
+            // Verify Plonk proof
+            let proof_file = format!("../binaries/{}_{}_proof.bin", program.to_string(), "plonk");
+            verify_proof(&proof_file, PLONK_VK_BYTES, ProofMode::Plonk);
 
-                // Verify Groth16 proof
-                let proof_file = format!("../binaries/{}_{}_proof.bin", program, "groth16");
-                verify_proof(&proof_file, GROTH16_VK_BYTES, ProofMode::Groth16);
-            });
+            // Verify Groth16 proof
+            let proof_file = format!(
+                "../binaries/{}_{}_proof.bin",
+                program.to_string(),
+                "groth16"
+            );
+            verify_proof(&proof_file, GROTH16_VK_BYTES, ProofMode::Groth16);
+        });
     }
 }
