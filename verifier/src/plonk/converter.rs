@@ -1,7 +1,7 @@
 use crate::{
     converter::{
-        compressed_x_to_g1_point, compressed_x_to_g2_point, unchecked_compressed_x_to_g2_point,
-        unchecked_compressed_x_to_g1_point, uncompressed_bytes_to_g1_point,
+        unchecked_compressed_x_to_g1_point, unchecked_compressed_x_to_g2_point,
+        uncompressed_bytes_to_g1_point,
     },
     error::Error,
 };
