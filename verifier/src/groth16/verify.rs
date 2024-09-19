@@ -48,6 +48,7 @@ pub struct PreparedVerifyingKey {
     pub delta_g2_neg_pc: G2,
 }
 
+// Prepare the inputs for the Groth16 verification by combining the public inputs with the corresponding elements of the verification key.
 fn prepare_inputs(vk: Groth16VerifyingKey, public_inputs: &[Fr]) -> Result<G1, Groth16Error> {
     if (public_inputs.len() + 1) != vk.g1.k.len() {
         return Err(Groth16Error::PrepareInputsFailed);

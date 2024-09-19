@@ -1,7 +1,7 @@
 use crate::{
     converter::{
-        compressed_x_to_g1_point, compressed_x_to_g2_point, trusted_compressed_x_to_g1_point,
-        trusted_compressed_x_to_g2_point, uncompressed_bytes_to_g1_point,
+        compressed_x_to_g1_point, compressed_x_to_g2_point, unchecked_compressed_x_to_g2_point,
+        unchecked_compressed_x_to_g1_point, uncompressed_bytes_to_g1_point,
     },
     error::Error,
 };
@@ -32,27 +32,27 @@ pub(crate) fn load_plonk_verifying_key_from_bytes(
 
     let coset_shift =
         Fr::from_slice(&buffer[80..112]).map_err(|e| PlonkError::GeneralError(Error::Field(e)))?;
-    let s0 = trusted_compressed_x_to_g1_point(&buffer[112..144])?;
-    let s1 = trusted_compressed_x_to_g1_point(&buffer[144..176])?;
-    let s2 = trusted_compressed_x_to_g1_point(&buffer[176..208])?;
-    let ql = trusted_compressed_x_to_g1_point(&buffer[208..240])?;
-    let qr = trusted_compressed_x_to_g1_point(&buffer[240..272])?;
-    let qm = trusted_compressed_x_to_g1_point(&buffer[272..304])?;
-    let qo = trusted_compressed_x_to_g1_point(&buffer[304..336])?;
-    let qk = trusted_compressed_x_to_g1_point(&buffer[336..368])?;
+    let s0 = unchecked_compressed_x_to_g1_point(&buffer[112..144])?;
+    let s1 = unchecked_compressed_x_to_g1_point(&buffer[144..176])?;
+    let s2 = unchecked_compressed_x_to_g1_point(&buffer[176..208])?;
+    let ql = unchecked_compressed_x_to_g1_point(&buffer[208..240])?;
+    let qr = unchecked_compressed_x_to_g1_point(&buffer[240..272])?;
+    let qm = unchecked_compressed_x_to_g1_point(&buffer[272..304])?;
+    let qo = unchecked_compressed_x_to_g1_point(&buffer[304..336])?;
+    let qk = unchecked_compressed_x_to_g1_point(&buffer[336..368])?;
     let num_qcp = u32::from_be_bytes([buffer[368], buffer[369], buffer[370], buffer[371]]);
     let mut qcp = Vec::new();
     let mut offset = 372;
 
     for _ in 0..num_qcp {
-        let point = trusted_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
+        let point = unchecked_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
         qcp.push(point);
         offset += 32;
     }
 
-    let g1 = trusted_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
-    let g2_0 = trusted_compressed_x_to_g2_point(&buffer[offset + 32..offset + 96])?;
-    let g2_1 = trusted_compressed_x_to_g2_point(&buffer[offset + 96..offset + 160])?;
+    let g1 = unchecked_compressed_x_to_g1_point(&buffer[offset..offset + 32])?;
+    let g2_0 = unchecked_compressed_x_to_g2_point(&buffer[offset + 32..offset + 96])?;
+    let g2_1 = unchecked_compressed_x_to_g2_point(&buffer[offset + 96..offset + 160])?;
 
     offset += 160 + 33788;
 
