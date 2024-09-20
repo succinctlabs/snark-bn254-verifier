@@ -5,7 +5,6 @@ use super::error::Groth16Error;
 #[derive(Clone, PartialEq)]
 pub struct Groth16G1 {
     pub alpha: AffineG1,
-    pub delta: AffineG1,
     pub k: Vec<AffineG1>,
 }
 
@@ -26,8 +25,6 @@ pub struct PedersenVerifyingKey {
 pub struct Groth16VerifyingKey {
     pub g1: Groth16G1,
     pub g2: Groth16G2,
-    pub commitment_key: PedersenVerifyingKey,
-    pub public_and_commitment_committed: Vec<Vec<u32>>,
 }
 
 #[allow(dead_code)]
@@ -35,8 +32,6 @@ pub struct Groth16Proof {
     pub ar: AffineG1,
     pub krs: AffineG1,
     pub bs: AffineG2,
-    pub commitments: Vec<AffineG1>,
-    pub commitment_pok: AffineG1,
 }
 
 #[derive(Clone, PartialEq)]
