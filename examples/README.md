@@ -20,9 +20,11 @@ To run the example, you can use the following ELF options:
 To run the example, run the following command:
 ```bash
 # Build the program
-cd program
-cargo prove build --bin plonk
-cargo prove build --bin groth16
+cd plonk
+cargo prove build
+
+cd ../groth16
+cargo prove build
 
 # Run the example
 cd ../script
