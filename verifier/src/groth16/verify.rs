@@ -5,7 +5,6 @@ use super::error::Groth16Error;
 #[derive(Clone, PartialEq)]
 pub struct Groth16G1 {
     pub alpha: AffineG1,
-    pub beta: AffineG1,
     pub delta: AffineG1,
     pub k: Vec<AffineG1>,
 }
