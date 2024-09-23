@@ -2,9 +2,8 @@ use clap::Parser;
 use num_bigint::BigUint;
 use num_traits::Num;
 use sp1_sdk::{proto::network::ProofMode, utils, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
-use strum::IntoEnumIterator;
-use strum_macros::{Display, EnumIter, EnumString};
 use std::str::FromStr;
+use strum_macros::{Display, EnumIter, EnumString};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_bytes!("../../elfs/fibonacci-riscv32im-succinct-zkvm-elf");
@@ -145,7 +144,7 @@ fn main() {
     stdin.write_slice(&committed_values_digest);
 
     // Setup the verifier program
-    let (_, vk) = client.setup(proof_elf);
+    let (pk, vk) = client.setup(proof_elf);
     // Generate a proof for the verifier program
     let proof = match mode {
         ProofMode::Groth16 => client
@@ -173,6 +172,7 @@ mod tests {
     use super::*;
 
     use snark_bn254_verifier::{Groth16Verifier, PlonkVerifier};
+    use strum::IntoEnumIterator;
     use substrate_bn::Fr;
 
     const PLONK_VK_BYTES: &[u8] = include_bytes!("../../../../.sp1/circuits/v2.0.0/plonk_vk.bin");
