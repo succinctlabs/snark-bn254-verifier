@@ -17,7 +17,7 @@ fn load_public_inputs(public_inputs: &[u8]) -> Result<Vec<Fr>, JsValue> {
 ///
 /// * `proof` - The proof bytes.
 /// * `vk` - The verification key bytes.
-/// * `public_inputs` - The public inputs bytes.
+/// * `public_inputs` - The public inputs bytes. This must be a concatenated array big-endian 32-byte segments representing scalar field elements
 ///
 /// # Returns
 ///
@@ -37,7 +37,7 @@ pub fn wasm_verify_groth16(proof: &[u8], vk: &[u8], public_inputs: &[u8]) -> Res
 ///
 /// * `proof` - The proof bytes.
 /// * `vk` - The verification key bytes.
-/// * `public_inputs` - The public inputs bytes.
+/// * `public_inputs` - The public inputs bytes. This must be a concatenated array of big-endian 32-byte segments representing scalar field elements
 ///
 /// # Returns
 ///
