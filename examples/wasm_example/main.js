@@ -36,17 +36,22 @@ export function fromBigNumber(number) {
 
 const files = fs.readdirSync("./data");
 
+// Iterate through each file in the data directory
 for (const file of files) {
     try {
+        // Read and parse the JSON content of the file
         const fileContent = fs.readFileSync(path.join("./data", file), 'utf8');
         const { proof } = JSON.parse(fileContent);
 
+        // Determine the ZKP type (Groth16 or Plonk) based on the filename
         const zkpType = file.toLowerCase().includes('groth16') ? 'Groth16' : 'Plonk';
         const { raw_proof, public_inputs } = proof[zkpType];
 
+        // Select the appropriate verification function and verification key based on ZKP type
         const verifyFunction = zkpType === 'Groth16' ? wasm.wasm_verify_groth16 : wasm.wasm_verify_plonk;
         const vkBytes = zkpType === 'Groth16' ? GROTH16_VK_BYTES : PLONK_VK_BYTES;
 
+        // The array is a flattened array of 32-byte segments
         const formattedPublicInputs = public_inputs.map(input => fromBigNumber(BigInt(input))).reduce((acc, val) => [...acc, ...val], []);
 
         assert(verifyFunction(fromHexString(raw_proof), vkBytes, formattedPublicInputs));
