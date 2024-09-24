@@ -1,11 +1,16 @@
+use sp1_sdk::install::try_install_circuit_artifacts;
 use sp1_sdk::SP1ProofWithPublicValues;
 use std::fs;
 use std::path::Path;
 
 fn main() {
+    // Install the Groth16 and Plonk circuit artifacts
+    try_install_circuit_artifacts();
+
     let binaries_dir = Path::new("../binaries");
     let output_dir = Path::new("../wasm_example/data");
 
+    // Convert binary proofs to JSON
     fs::read_dir(binaries_dir)
         .expect("Failed to read binaries directory")
         .filter_map(Result::ok)

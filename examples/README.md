@@ -26,6 +26,7 @@ cargo prove build --bin groth16
 
 # Run the example
 cd ../script
+cargo build # Installs the circuit artifacts
 RUST_LOG=info cargo run --release --  --elf fibonacci --mode plonk
 ```
 
