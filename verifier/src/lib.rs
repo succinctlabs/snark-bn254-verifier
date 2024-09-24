@@ -21,6 +21,8 @@ mod groth16;
 mod hash_to_field;
 mod plonk;
 mod transcript;
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
 
 /// A verifier for Groth16 zero-knowledge proofs.
 #[derive(Debug)]

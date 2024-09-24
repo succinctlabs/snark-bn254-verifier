@@ -1,0 +1,13 @@
+{
+    "name": "wasm_example",
+    "version": "1.0.0",
+    "description": "WASM Bindings for Plonk/Groth16 Verification on the BN254 Curve",
+    "main": "main.js",
+    "scripts": {
+        "test": "node main.js"
+    },
+    "keywords": [],
+    "author": "Bhargav Annem",
+    "license": "ISC",
+    "type": "module"
+}

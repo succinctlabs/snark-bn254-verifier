@@ -4614,6 +4614,7 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 name = "snark-bn254-verifier"
 version = "1.0.2"
 dependencies = [
+ "getrandom",
  "lazy_static",
  "num-bigint 0.4.6",
  "num-traits",
@@ -4621,6 +4622,7 @@ dependencies = [
  "sha2",
  "substrate-bn",
  "thiserror",
+ "wasm-bindgen",
 ]
 
 [[package]]

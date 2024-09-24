@@ -60,6 +60,20 @@ fn main() {
 
 ```
 
+#### Compile to WASM
+Build the wasm module with the following command:
+```bash
+cd verifier
+wasm-pack build --target nodejs --dev # adjust the target to your liking
+```
+
+Then run the example in the `examples/wasm_example` directory:
+```bash
+cd examples/wasm_example
+pnpm install
+pnpm run test
+```
+
 ## Features
 
 - Verification of Groth16 and PlonK proofs generated using `gnark` or `sp1` on the `Bn254` curve.
