@@ -48,24 +48,16 @@ pub struct PreparedVerifyingKey {
     pub delta_g2_neg_pc: G2,
 }
 
-fn process_vk(vk: &Groth16VerifyingKey) -> Result<PreparedVerifyingKey, Groth16Error> {
-    Ok(PreparedVerifyingKey {
-        vk: vk.clone(),
-        alpha_g1_beta_g2: pairing(vk.g1.alpha.into(), vk.g2.beta.into()),
-        gamma_g2_neg_pc: (-vk.g2.gamma).into(),
-        delta_g2_neg_pc: (-vk.g2.delta).into(),
-    })
-}
-
-fn prepare_inputs(pvk: PreparedVerifyingKey, public_inputs: &[Fr]) -> Result<G1, Groth16Error> {
-    if (public_inputs.len() + 1) != pvk.vk.g1.k.len() {
+// Prepare the inputs for the Groth16 verification by combining the public inputs with the corresponding elements of the verification key.
+fn prepare_inputs(vk: Groth16VerifyingKey, public_inputs: &[Fr]) -> Result<G1, Groth16Error> {
+    if (public_inputs.len() + 1) != vk.g1.k.len() {
         return Err(Groth16Error::PrepareInputsFailed);
     }
 
     Ok(public_inputs
         .iter()
-        .zip(pvk.vk.g1.k.iter().skip(1))
-        .fold(pvk.vk.g1.k[0], |acc, (i, b)| acc + (*b * *i))
+        .zip(vk.g1.k.iter().skip(1))
+        .fold(vk.g1.k[0], |acc, (i, b)| acc + (*b * *i))
         .into())
 }
 
@@ -74,19 +66,12 @@ pub fn verify_groth16(
     proof: &Groth16Proof,
     public_inputs: &[Fr],
 ) -> Result<bool, Groth16Error> {
-    let pvk = process_vk(vk)?;
-    let qap = pairing_batch(&[
+    let alpha_g1_beta_g2 = pairing(vk.g1.alpha.into(), vk.g2.beta.into());
+    let prepared_inputs = prepare_inputs(vk.clone(), public_inputs)?;
+
+    Ok(pairing_batch(&[
         (proof.ar.into(), proof.bs.into()),
-        (
-            prepare_inputs(pvk.clone(), public_inputs)?,
-            pvk.gamma_g2_neg_pc,
-        ),
-        (proof.krs.into(), pvk.delta_g2_neg_pc),
-    ]);
-
-    let exp = qap
-        .final_exponentiation()
-        .ok_or(Groth16Error::UnexpectedIdentity)?;
-
-    Ok(exp == pvk.alpha_g1_beta_g2)
+        (prepared_inputs, vk.g2.gamma.into()),
+        (proof.krs.into(), -Into::<G2>::into(vk.g2.delta)),
+    ]) == alpha_g1_beta_g2)
 }

@@ -428,7 +428,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "substrate-bn"
 version = "0.7.0"
-source = "git+https://github.com/sp1-patches/bn?branch=patch-v0.7.0#397272858596b1353eb2313cc8dd7220aae71012"
+source = "git+https://github.com/sp1-patches/bn?branch=patch-v0.7.0#2f5d4394b28550e47b16b061372832cba6d2dcf6"
 dependencies = [
  "bytemuck",
  "byteorder",
@@ -491,9 +491,9 @@ checksum = "0dd7358ecb8fc2f8d014bf86f6f638ce72ba252a2c3a2572f2a795f1d23efb41"
 
 [[package]]
 name = "toml_edit"
-version = "0.22.20"
+version = "0.22.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "583c44c02ad26b0c3f3066fe629275e50627026c51ac2e595cca4c230ce1ce1d"
+checksum = "3b072cee73c449a636ffd6f32bd8de3a9f7119139aff882f44943ce2986dc5cf"
 dependencies = [
  "indexmap",
  "toml_datetime",

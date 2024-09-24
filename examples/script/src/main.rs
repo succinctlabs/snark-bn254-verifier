@@ -1,57 +1,133 @@
-//! A simple script to generate and verify the proof of a given program.
+use clap::Parser;
 use num_bigint::BigUint;
 use num_traits::Num;
-use sp1_sdk::{
-    install::try_install_circuit_artifacts, utils, ProverClient, SP1ProofWithPublicValues, SP1Stdin,
-};
+use sp1_sdk::{proto::network::ProofMode, utils, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
+use std::str::FromStr;
+use strum_macros::{Display, EnumIter, EnumString};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const FIBONACCI_ELF: &[u8] = include_bytes!("../../fibonacci-riscv32im-succinct-zkvm-elf");
-pub const ELF: &[u8] = include_bytes!("../../program/elf/riscv32im-succinct-zkvm-elf");
+pub const FIBONACCI_ELF: &[u8] = include_bytes!("../../elfs/fibonacci-riscv32im-succinct-zkvm-elf");
+pub const ISPRIME_ELF: &[u8] = include_bytes!("../../elfs/isprime-riscv32im-succinct-zkvm-elf");
+pub const SHA2_ELF: &[u8] = include_bytes!("../../elfs/sha2-riscv32im-succinct-zkvm-elf");
+pub const TENDERMINT_ELF: &[u8] =
+    include_bytes!("../../elfs/tendermint-riscv32im-succinct-zkvm-elf");
+
+pub const PLONK_ELF: &[u8] = include_bytes!("../../program/elf/plonk");
+pub const GROTH16_ELF: &[u8] = include_bytes!("../../program/elf/groth16");
+
+#[derive(clap::Parser)]
+#[command(name = "zkVM Proof Generator")]
+struct Cli {
+    #[arg(
+        long,
+        value_name = "ELF",
+        default_value = "fibonacci",
+        help = "Specifies the ELF file to use (e.g., fibonacci, is-prime)"
+    )]
+    elf: String,
+
+    #[arg(
+        long,
+        value_name = "MODE",
+        default_value = "plonk",
+        help = "Specifies the proof mode to use (e.g., groth16, plonk)"
+    )]
+    mode: String,
+}
+
+#[derive(Debug, EnumString, EnumIter, Display)]
+enum Elf {
+    #[strum(serialize = "fibonacci")]
+    Fibonacci,
+    #[strum(serialize = "is-prime")]
+    IsPrime,
+    #[strum(serialize = "sha2")]
+    Sha2,
+    #[strum(serialize = "tendermint")]
+    Tendermint,
+}
+
+impl Elf {
+    fn get_elf(&self) -> &'static [u8] {
+        match self {
+            Elf::Fibonacci => FIBONACCI_ELF,
+            Elf::IsPrime => ISPRIME_ELF,
+            Elf::Sha2 => SHA2_ELF,
+            Elf::Tendermint => TENDERMINT_ELF,
+        }
+    }
+}
 
 fn main() {
     // Setup logging for the application
     utils::setup_logger();
 
-    // Set the input value for the Fibonacci calculation
-    let n = 20;
-
-    // Prepare the input for the zkVM
+    // Parse command line arguments
+    let args = Cli::parse();
     let mut stdin = SP1Stdin::new();
-    stdin.write(&n);
+
+    let elf_enum = Elf::from_str(&args.elf)
+        .expect("Invalid ELF name. Use 'fibonacci', 'is-prime', or other valid ELF names.");
+    let elf = match elf_enum {
+        Elf::Fibonacci => {
+            let n = 20;
+            stdin.write(&n);
+            elf_enum.get_elf()
+        }
+        Elf::IsPrime => {
+            let n = 11u64;
+            stdin.write(&n);
+            elf_enum.get_elf()
+        }
+        Elf::Sha2 | Elf::Tendermint => elf_enum.get_elf(),
+    };
+
+    let (mode, proof_elf) = match args.mode.as_str() {
+        "groth16" => (ProofMode::Groth16, GROTH16_ELF),
+        "plonk" => (ProofMode::Plonk, PLONK_ELF),
+        _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
+    };
 
     // Initialize the prover client
     let client = ProverClient::new();
-    let (pk, _) = client.setup(FIBONACCI_ELF);
+    let (pk, _) = client.setup(elf);
 
-    // Generate a proof for the Fibonacci program
-    let proof = client
-        .prove(&pk, stdin)
-        .plonk()
-        .run()
-        .expect("Proving failed");
+    // Generate a proof for the specified program
+    let proof = match mode {
+        ProofMode::Groth16 => client
+            .prove(&pk, stdin)
+            .groth16()
+            .run()
+            .expect("Groth16 proof generation failed"),
+        ProofMode::Plonk => client
+            .prove(&pk, stdin)
+            .plonk()
+            .run()
+            .expect("Plonk proof generation failed"),
+        _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
+    };
 
     // Save the generated proof to a binary file
-    let proof_file = "proof.bin";
-    proof.save(proof_file).unwrap();
+    let proof_file = format!("../binaries/{}_{}_proof.bin", args.elf, args.mode);
+    proof.save(&proof_file).unwrap();
 
-    // Retrieve the verification key
-    let vk_dir_entry = try_install_circuit_artifacts();
-    let vk_bin_path = vk_dir_entry.join("plonk_vk.bin"); // For Groth16, use "groth16_vk.bin"
-
-    // Read the verification key from file
-    let vk = std::fs::read(vk_bin_path).unwrap();
-
-    // Load the saved proof and convert it to a Plonk proof
-    let proof = SP1ProofWithPublicValues::load("proof.bin")
-        .map(|sp1_proof_with_public_values| {
-            sp1_proof_with_public_values.proof.try_as_plonk().unwrap() // Use `try_as_groth_16()` for Groth16
+    // Load the saved proof and convert it to a Groth16 proof
+    let (raw_proof, public_inputs) = SP1ProofWithPublicValues::load(&proof_file)
+        .map(|sp1_proof_with_public_values| match mode {
+            ProofMode::Groth16 => {
+                let proof = sp1_proof_with_public_values
+                    .proof
+                    .try_as_groth_16()
+                    .unwrap();
+                (hex::decode(proof.raw_proof).unwrap(), proof.public_inputs)
+            }
+            ProofMode::Plonk => {
+                let proof = sp1_proof_with_public_values.proof.try_as_plonk().unwrap();
+                (hex::decode(proof.raw_proof).unwrap(), proof.public_inputs)
+            }
+            _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
         })
         .expect("Failed to load proof");
-
-    // Extract the raw proof and public inputs
-    let raw_proof = hex::decode(proof.raw_proof).unwrap();
-    let public_inputs = proof.public_inputs;
 
     // Convert public inputs to byte representations
     let vkey_hash = BigUint::from_str_radix(&public_inputs[0], 10)
@@ -64,18 +140,25 @@ fn main() {
     // Prepare input for the verifier program
     let mut stdin = SP1Stdin::new();
     stdin.write_slice(&raw_proof);
-    stdin.write_slice(&vk);
     stdin.write_slice(&vkey_hash);
     stdin.write_slice(&committed_values_digest);
 
     // Setup the verifier program
-    let (pk, vk) = client.setup(ELF);
+    let (pk, vk) = client.setup(proof_elf);
     // Generate a proof for the verifier program
-    let proof = client
-        .prove(&pk, stdin)
-        .plonk()
-        .run()
-        .expect("Proving failed");
+    let proof = match mode {
+        ProofMode::Groth16 => client
+            .prove(&pk, stdin)
+            .groth16()
+            .run()
+            .expect("Groth16 proof generation failed"),
+        ProofMode::Plonk => client
+            .prove(&pk, stdin)
+            .plonk()
+            .run()
+            .expect("Plonk proof generation failed"),
+        _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
+    };
 
     // Verify the proof of the verifier program
     client.verify(&proof, &vk).expect("verification failed");
@@ -88,51 +171,76 @@ mod tests {
 
     use super::*;
 
-    use snark_bn254_verifier::PlonkVerifier;
+    use snark_bn254_verifier::{Groth16Verifier, PlonkVerifier};
+    use strum::IntoEnumIterator;
     use substrate_bn::Fr;
 
+    const PLONK_VK_BYTES: &[u8] = include_bytes!("../../../../.sp1/circuits/v2.0.0/plonk_vk.bin");
+    const GROTH16_VK_BYTES: &[u8] =
+        include_bytes!("../../../../.sp1/circuits/v2.0.0/groth16_vk.bin");
+
     #[test]
-    fn test_fibonacci() {
-        // Retrieve the verification key
-        let vk_dir_entry = try_install_circuit_artifacts();
-        let vk_bin_path = vk_dir_entry.join("plonk_vk.bin"); // For Groth16, use "groth16_vk.bin"
+    fn test_programs() {
+        fn verify_proof(proof_file: &str, vk: &[u8], proof_mode: ProofMode) {
+            // Load the saved proof and convert it to the specified proof mode
+            let (raw_proof, public_inputs) = SP1ProofWithPublicValues::load(proof_file)
+                .map(|sp1_proof_with_public_values| match proof_mode {
+                    ProofMode::Groth16 => {
+                        let proof = sp1_proof_with_public_values
+                            .proof
+                            .try_as_groth_16()
+                            .unwrap();
+                        (hex::decode(proof.raw_proof).unwrap(), proof.public_inputs)
+                    }
+                    ProofMode::Plonk => {
+                        let proof = sp1_proof_with_public_values.proof.try_as_plonk().unwrap();
+                        (hex::decode(proof.raw_proof).unwrap(), proof.public_inputs)
+                    }
+                    _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
+                })
+                .expect("Failed to load proof");
 
-        // Read the verification key from file
-        let vk = std::fs::read(vk_bin_path).unwrap();
+            // Convert public inputs to byte representations
+            let vkey_hash = BigUint::from_str_radix(&public_inputs[0], 10)
+                .unwrap()
+                .to_bytes_be();
+            let committed_values_digest = BigUint::from_str_radix(&public_inputs[1], 10)
+                .unwrap()
+                .to_bytes_be();
 
-        // Load the saved proof and convert it to a Plonk proof
-        let proof = SP1ProofWithPublicValues::load("proof.bin")
-            .map(|sp1_proof_with_public_values| {
-                sp1_proof_with_public_values.proof.try_as_plonk().unwrap() // Use `try_as_groth_16()` for Groth16
-            })
-            .expect("Failed to load proof");
+            let vkey_hash = Fr::from_slice(&vkey_hash).expect("Unable to read vkey_hash");
+            let committed_values_digest = Fr::from_slice(&committed_values_digest)
+                .expect("Unable to read committed_values_digest");
 
-        // Extract the raw proof and public inputs
-        let raw_proof = hex::decode(proof.raw_proof).unwrap();
-        let public_inputs = proof.public_inputs;
+            let is_valid = match proof_mode {
+                ProofMode::Groth16 => {
+                    Groth16Verifier::verify(&raw_proof, &vk, &[vkey_hash, committed_values_digest])
+                        .expect("Groth16 proof is invalid")
+                }
+                ProofMode::Plonk => {
+                    PlonkVerifier::verify(&raw_proof, &vk, &[vkey_hash, committed_values_digest])
+                        .expect("Plonk proof is invalid")
+                }
+                _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
+            };
 
-        // Convert public inputs to byte representations
-        let vkey_hash = BigUint::from_str_radix(&public_inputs[0], 10)
-            .unwrap()
-            .to_bytes_be();
-        let committed_values_digest = BigUint::from_str_radix(&public_inputs[1], 10)
-            .unwrap()
-            .to_bytes_be();
-
-        let vkey_hash = Fr::from_slice(&vkey_hash).expect("Unable to read vkey_hash");
-        let committed_values_digest = Fr::from_slice(&committed_values_digest)
-            .expect("Unable to read committed_values_digest");
-
-        let result = PlonkVerifier::verify(&raw_proof, &vk, &[vkey_hash, committed_values_digest]);
-
-        match result {
-            Ok(true) => {
-                println!("Proof is valid");
-            }
-            Ok(false) | Err(_) => {
-                println!("Proof is invalid");
-                panic!();
+            if !is_valid {
+                panic!("{:?} proof is invalid", proof_mode);
             }
         }
+
+        Elf::iter().for_each(|program| {
+            // Verify Plonk proof
+            let proof_file = format!("../binaries/{}_{}_proof.bin", program.to_string(), "plonk");
+            verify_proof(&proof_file, PLONK_VK_BYTES, ProofMode::Plonk);
+
+            // Verify Groth16 proof
+            let proof_file = format!(
+                "../binaries/{}_{}_proof.bin",
+                program.to_string(),
+                "groth16"
+            );
+            verify_proof(&proof_file, GROTH16_VK_BYTES, ProofMode::Groth16);
+        });
     }
 }
