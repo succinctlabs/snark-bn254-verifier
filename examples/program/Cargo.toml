@@ -7,3 +7,11 @@ edition = "2021"
 sp1-zkvm = "2.0.0"
 snark-bn254-verifier = { path = "../../verifier" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", branch = "patch-v0.7.0" }
+
+[[bin]]
+name = "plonk"
+path = "src/plonk.rs"
+
+[[bin]]
+name = "groth16"
+path = "src/groth16.rs"

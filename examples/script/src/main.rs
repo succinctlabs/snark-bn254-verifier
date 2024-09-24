@@ -3,7 +3,6 @@ use num_bigint::BigUint;
 use num_traits::Num;
 use sp1_sdk::{proto::network::ProofMode, utils, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
 use std::str::FromStr;
-use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter, EnumString};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
@@ -13,8 +12,8 @@ pub const SHA2_ELF: &[u8] = include_bytes!("../../elfs/sha2-riscv32im-succinct-z
 pub const TENDERMINT_ELF: &[u8] =
     include_bytes!("../../elfs/tendermint-riscv32im-succinct-zkvm-elf");
 
-pub const PLONK_ELF: &[u8] = include_bytes!("../../plonk/elf/riscv32im-succinct-zkvm-elf");
-pub const GROTH16_ELF: &[u8] = include_bytes!("../../groth16/elf/riscv32im-succinct-zkvm-elf");
+pub const PLONK_ELF: &[u8] = include_bytes!("../../program/elf/plonk");
+pub const GROTH16_ELF: &[u8] = include_bytes!("../../program/elf/groth16");
 
 #[derive(clap::Parser)]
 #[command(name = "zkVM Proof Generator")]
@@ -110,7 +109,7 @@ fn main() {
 
     // Save the generated proof to a binary file
     let proof_file = format!("../binaries/{}_{}_proof.bin", args.elf, args.mode);
-    // proof.save(&proof_file).unwrap();
+    proof.save(&proof_file).unwrap();
 
     // Load the saved proof and convert it to a Groth16 proof
     let (raw_proof, public_inputs) = SP1ProofWithPublicValues::load(&proof_file)
@@ -173,6 +172,7 @@ mod tests {
     use super::*;
 
     use snark_bn254_verifier::{Groth16Verifier, PlonkVerifier};
+    use strum::IntoEnumIterator;
     use substrate_bn::Fr;
 
     const PLONK_VK_BYTES: &[u8] = include_bytes!("../../../../.sp1/circuits/v2.0.0/plonk_vk.bin");
