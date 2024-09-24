@@ -243,4 +243,34 @@ mod tests {
             verify_proof(&proof_file, GROTH16_VK_BYTES, ProofMode::Groth16);
         });
     }
+
+    #[test]
+    fn convert_binary_to_json() {
+        Elf::iter().for_each(|program| {
+            // Convert Plonk proof to JSON and save
+            let plonk_proof_file =
+                format!("../binaries/{}_{}_proof.bin", program.to_string(), "plonk");
+            let plonk_proof = SP1ProofWithPublicValues::load(&plonk_proof_file).unwrap();
+            let plonk_json_proof = serde_json::to_string(&plonk_proof).unwrap();
+            let plonk_json_file = format!(
+                "../wasm_example/data/{}_plonk_proof.json",
+                program.to_string()
+            );
+            std::fs::write(&plonk_json_file, plonk_json_proof).unwrap();
+
+            // Convert Groth16 proof to JSON and save
+            let groth16_proof_file = format!(
+                "../binaries/{}_{}_proof.bin",
+                program.to_string(),
+                "groth16"
+            );
+            let groth16_proof = SP1ProofWithPublicValues::load(&groth16_proof_file).unwrap();
+            let groth16_json_proof = serde_json::to_string(&groth16_proof).unwrap();
+            let groth16_json_file = format!(
+                "../wasm_example/data/{}_groth16_proof.json",
+                program.to_string()
+            );
+            std::fs::write(&groth16_json_file, groth16_json_proof).unwrap();
+        });
+    }
 }

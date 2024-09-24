@@ -3828,6 +3828,7 @@ dependencies = [
  "hex",
  "num-bigint 0.4.6",
  "num-traits",
+ "serde_json",
  "snark-bn254-verifier",
  "sp1-helper",
  "sp1-prover",
