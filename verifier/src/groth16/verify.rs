@@ -72,6 +72,6 @@ pub fn verify_groth16(
         (proof.ar.into(), proof.bs.into()),
         (prepared_inputs, vk.g2.gamma.into()),
         (proof.krs.into(), -Into::<G2>::into(vk.g2.delta)),
-        (vk.g1.alpha.into(), -Into::<G2>::into(vk.g2.beta)),
+        (vk.g1.alpha.into(), vk.g2.beta.into()),
     ]) == Gt::one())
 }
