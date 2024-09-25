@@ -3835,7 +3835,6 @@ dependencies = [
  "sp1-sdk",
  "strum 0.25.0",
  "strum_macros 0.25.3",
- "substrate-bn",
 ]
 
 [[package]]

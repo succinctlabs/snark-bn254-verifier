@@ -4,7 +4,7 @@
 
 //! This crate provides verifiers for Groth16 and Plonk zero-knowledge proofs.
 
-use bn::Fr;
+pub use bn::Fr;
 use groth16::{
     error::Groth16Error, load_groth16_proof_from_bytes, load_groth16_verifying_key_from_bytes,
     verify_groth16,
