@@ -16,7 +16,9 @@ strum_macros = "0.25"
 
 [build-dependencies]
 sp1-helper = "2.0.0"
+sp1-prover = "2.0.0"
+sp1-sdk = "2.0.0"
+serde_json = "1.0.128"
 
 [dev-dependencies]
 snark-bn254-verifier = { path = "../../verifier" }
-substrate-bn = { git = "https://github.com/sp1-patches/bn", branch = "patch-v0.7.0" }

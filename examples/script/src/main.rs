@@ -171,9 +171,8 @@ mod tests {
 
     use super::*;
 
-    use snark_bn254_verifier::{Groth16Verifier, PlonkVerifier};
+    use snark_bn254_verifier::{Fr, Groth16Verifier, PlonkVerifier};
     use strum::IntoEnumIterator;
-    use substrate_bn::Fr;
 
     const PLONK_VK_BYTES: &[u8] = include_bytes!("../../../../.sp1/circuits/v2.0.0/plonk_vk.bin");
     const GROTH16_VK_BYTES: &[u8] =
