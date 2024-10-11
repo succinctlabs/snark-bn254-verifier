@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use super::kzg::{BatchOpeningProof, Digest, OpeningProof};
 
 #[derive(Debug)]

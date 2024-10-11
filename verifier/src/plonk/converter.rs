@@ -5,6 +5,7 @@ use crate::{
     },
     error::Error,
 };
+use alloc::vec::Vec;
 use bn::{AffineG1, Fr, G2};
 
 use super::{

@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use bn::{pairing, pairing_batch, AffineG1, AffineG2, Fr, Gt, G1, G2};
 
 use super::error::Groth16Error;

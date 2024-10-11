@@ -1,5 +1,5 @@
+use alloc::{collections::btree_map::BTreeMap, string::String, vec::Vec};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 
 use crate::error::Error;
 
@@ -15,7 +15,7 @@ pub(crate) struct Challenge {
 pub(crate) struct Transcript {
     pub(crate) h: Sha256,
 
-    pub(crate) challenges: HashMap<String, Challenge>,
+    pub(crate) challenges: BTreeMap<String, Challenge>,
     previous_challenge: Option<Challenge>,
 }
 
@@ -24,7 +24,7 @@ impl Transcript {
         let h = Sha256::new();
 
         if let Some(challenges_id) = challenges_id {
-            let mut challenges = HashMap::new();
+            let mut challenges = BTreeMap::new();
             for (position, id) in challenges_id.iter().enumerate() {
                 challenges.insert(
                     id.clone(),
@@ -45,7 +45,7 @@ impl Transcript {
         } else {
             Ok(Transcript {
                 h,
-                challenges: HashMap::new(),
+                challenges: BTreeMap::new(),
                 previous_challenge: None,
             })
         }
