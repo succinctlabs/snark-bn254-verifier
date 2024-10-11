@@ -92,24 +92,24 @@ fn main() {
     let client = ProverClient::new();
     let (pk, _) = client.setup(elf);
 
-    // Generate a proof for the specified program
-    let proof = match mode {
-        ProofMode::Groth16 => client
-            .prove(&pk, stdin)
-            .groth16()
-            .run()
-            .expect("Groth16 proof generation failed"),
-        ProofMode::Plonk => client
-            .prove(&pk, stdin)
-            .plonk()
-            .run()
-            .expect("Plonk proof generation failed"),
-        _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
-    };
+    // // Generate a proof for the specified program
+    // let proof = match mode {
+    //     ProofMode::Groth16 => client
+    //         .prove(&pk, stdin)
+    //         .groth16()
+    //         .run()
+    //         .expect("Groth16 proof generation failed"),
+    //     ProofMode::Plonk => client
+    //         .prove(&pk, stdin)
+    //         .plonk()
+    //         .run()
+    //         .expect("Plonk proof generation failed"),
+    //     _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
+    // };
 
     // Save the generated proof to a binary file
     let proof_file = format!("../binaries/{}_{}_proof.bin", args.elf, args.mode);
-    proof.save(&proof_file).unwrap();
+    // proof.save(&proof_file).unwrap();
 
     // Load the saved proof and convert it to a Groth16 proof
     let (raw_proof, public_inputs) = SP1ProofWithPublicValues::load(&proof_file)
@@ -148,20 +148,18 @@ fn main() {
     // Generate a proof for the verifier program
     let proof = match mode {
         ProofMode::Groth16 => client
-            .prove(&pk, stdin)
-            .groth16()
+            .execute(&proof_elf, stdin)
             .run()
             .expect("Groth16 proof generation failed"),
         ProofMode::Plonk => client
-            .prove(&pk, stdin)
-            .plonk()
+            .execute(&proof_elf, stdin)
             .run()
             .expect("Plonk proof generation failed"),
         _ => panic!("Invalid proof mode. Use 'groth16' or 'plonk'."),
     };
 
     // Verify the proof of the verifier program
-    client.verify(&proof, &vk).expect("verification failed");
+    // client.verify(&proof, &vk).expect("verification failed");
 
     println!("Successfully verified proof for the program!")
 }

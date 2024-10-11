@@ -3830,7 +3830,6 @@ dependencies = [
  "num-traits",
  "snark-bn254-verifier",
  "sp1-helper",
- "sp1-prover",
  "sp1-sdk",
  "strum 0.25.0",
  "strum_macros 0.25.3",
@@ -4614,13 +4613,10 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 name = "snark-bn254-verifier"
 version = "1.0.2"
 dependencies = [
- "lazy_static",
- "num-bigint 0.4.6",
- "num-traits",
  "rand",
  "sha2",
  "substrate-bn",
- "thiserror",
+ "thiserror-no-std",
 ]
 
 [[package]]
@@ -5414,6 +5410,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.77",
+]
+
+[[package]]
+name = "thiserror-impl-no-std"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58e6318948b519ba6dc2b442a6d0b904ebfb8d411a3ad3e07843615a72249758"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "thiserror-no-std"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3ad459d94dd517257cc96add8a43190ee620011bb6e6cdc82dafd97dfafafea"
+dependencies = [
+ "thiserror-impl-no-std",
 ]
 
 [[package]]
