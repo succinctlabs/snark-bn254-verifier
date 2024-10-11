@@ -386,9 +386,6 @@ dependencies = [
 name = "snark-bn254-verifier"
 version = "1.0.2"
 dependencies = [
- "lazy_static",
- "num-bigint",
- "num-traits",
  "rand",
  "sha2",
  "substrate-bn",
