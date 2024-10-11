@@ -1,5 +1,5 @@
+use alloc::vec::Vec;
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 
 use crate::error::Error;
 

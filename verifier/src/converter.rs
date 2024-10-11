@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use core::cmp::Ordering;
 
 use bn::{AffineG1, AffineG2, Fq, Fq2};
 

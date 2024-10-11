@@ -3,6 +3,8 @@
 #![deny(missing_docs)]
 
 //! This crate provides verifiers for Groth16 and Plonk zero-knowledge proofs.
+#![no_std]
+extern crate alloc;
 
 use bn::Fr;
 use groth16::{
