@@ -146,7 +146,6 @@ pub(crate) fn batch_verify_multi_points(
     if nb_digests == 1 {
         todo!();
     }
-
     let mut rng = OsRng;
     let mut random_numbers = Vec::with_capacity(nb_digests);
     random_numbers.push(Fr::one());
