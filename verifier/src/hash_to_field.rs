@@ -1,4 +1,5 @@
-use alloc::vec::{self, Vec};
+use alloc::vec;
+use alloc::vec::Vec;
 use core::hash::Hasher;
 use sha2::Digest;
 

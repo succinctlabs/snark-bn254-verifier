@@ -1,3 +1,4 @@
+use alloc::{vec, vec::Vec};
 use bn::AffineG1;
 
 use crate::{

@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use sha2::{Digest, Sha256};
 
 use crate::error::Error;

@@ -1,4 +1,4 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::{string::ToString, vec, vec::Vec};
 use bn::{pairing_batch, AffineG1, Fr, G1, G2};
 use rand::rngs::OsRng;
 
